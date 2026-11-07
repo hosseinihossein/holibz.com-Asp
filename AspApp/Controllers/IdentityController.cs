@@ -45,7 +45,7 @@ public class IdentityController : ControllerBase
         IHttpClientFactory httpClientFactory,
         UsernameGenerator usernameGenerator,
         IEmailSender emailSender,
-        IOptions<TurnstileConfigs> turnstileOptions,
+        TurnstileConfigs turnstileConfigs,
         MainConfigs mainConfigs,
         UserProfileManager userAccountManager
     )
@@ -55,7 +55,7 @@ public class IdentityController : ControllerBase
         _httpClientFactory = httpClientFactory;
         _usernameGenerator = usernameGenerator;
         _emailSender = emailSender;
-        _turnstileEnabled = turnstileOptions.Value.Enabled;
+        _turnstileEnabled = turnstileConfigs.Enabled;
         _mainConfigs = mainConfigs;
         _userProfileManager = userAccountManager;
     }
@@ -264,7 +264,7 @@ public class IdentityController : ControllerBase
                 }
 
                 // send new user to user account manager
-                NewUserAccountModel newUserAccountModel = new()
+                NewUserProfileModel newUserAccountModel = new()
                 {
                     Id = user.Id,
                     AvatarUrl = result.Principal.GetClaim("avatar_url"),
@@ -345,7 +345,7 @@ public class IdentityController : ControllerBase
                 }
 
                 // send new user to user account manager
-                NewUserAccountModel newUserAccountModel = new()
+                NewUserProfileModel newUserAccountModel = new()
                 {
                     Id = user.Id,
                     AvatarUrl = result.Principal.GetClaim("picture"),
@@ -399,7 +399,7 @@ public class IdentityController : ControllerBase
             _ = SendEmailValidationLink(user);
 
             // send new user to user account manager
-            NewUserAccountModel newUserAccountModel = new()
+            NewUserProfileModel newUserAccountModel = new()
             {
                 Id = user.Id,
             };

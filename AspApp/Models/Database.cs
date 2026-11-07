@@ -1,23 +1,23 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using AspApp.Helpers;
 using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
-using NATS.Client.Core;
 
 namespace AspApp.Models;
 
 //*************** DataProtection_DbContext ****************
-public class DataProtection_DbContext : DbContext, IDataProtectionKeyContext
+/*public class DataProtection_DbContext : DbContext, IDataProtectionKeyContext
 {
     public DataProtection_DbContext(DbContextOptions<DataProtection_DbContext> options)
     : base(options) { }
 
     // This maps to the table that stores keys
     public DbSet<DataProtectionKey> DataProtectionKeys { get; set; }
-}
+}*/
 
 //*************** Identity_DbContext ****************
 public class Identity_DbContext : IdentityDbContext<IdentityUser<Guid>, IdentityRole<Guid>, Guid>
@@ -26,47 +26,40 @@ public class Identity_DbContext : IdentityDbContext<IdentityUser<Guid>, Identity
 }
 
 //*************** Identity_DbContext ****************
-public class Database_Initializer : IHostedService
+public class IdentityDb_Initializer : IHostedService
 {
-    private readonly DataProtection_DbContext _dataProtectionDb;
     private readonly Identity_DbContext _identityDb;
     private readonly UserManager<IdentityUser<Guid>> _userManager;
     private readonly RoleManager<IdentityRole<Guid>> _roleManager;
-    private readonly INatsClient _natsClient;
-    private readonly NatsSubjects _natsSubjects;
-    private readonly ILogger<Database_Initializer> _logger;
+    private readonly ILogger<IdentityDb_Initializer> _logger;
     private readonly string _adminUserName;
     private readonly string _adminPassword;
     private readonly string _adminEmail;
     private readonly string _adminRoleName;
+    readonly UserProfileManager _userProfileManager;
 
-    public Database_Initializer(
-        DataProtection_DbContext dataProtectionDb,
+    public IdentityDb_Initializer(
         Identity_DbContext identityDb,
         UserManager<IdentityUser<Guid>> userManager,
         RoleManager<IdentityRole<Guid>> roleManager,
-        INatsClient natsClient,
-        IOptions<NatsSubjects> natsSubjectOptions,
-        ILogger<Database_Initializer> logger,
-        IConfiguration configuration
+        ILogger<IdentityDb_Initializer> logger,
+        IConfiguration configuration,
+        UserProfileManager userProfileManager
     )
     {
-        _dataProtectionDb = dataProtectionDb;
         _identityDb = identityDb;
         _userManager = userManager;
         _roleManager = roleManager;
-        _natsClient = natsClient;
-        _natsSubjects = natsSubjectOptions.Value;
         _logger = logger;
         _adminEmail = configuration["Identity:AdminEmail"]!;
         _adminUserName = configuration["Identity:AdminUserName"]!;
         _adminPassword = configuration["Identity:AdminPassword"]!;
         _adminRoleName = configuration["Identity:AdminRoleName"]!;
+        _userProfileManager = userProfileManager;
     }
 
     public async Task StartAsync(CancellationToken cancellationToken)
     {
-        await _dataProtectionDb.Database.MigrateAsync();
         await _identityDb.Database.MigrateAsync();
 
         //***** Create "admin" Identity *****
@@ -92,17 +85,12 @@ public class Database_Initializer : IHostedService
                 return;
             }
 
-            // send admin info through Nats to submit their profile 
-            Nats_CreateUserAccount_Payload userAccPayload = new Nats_CreateUserAccount_Payload(
-                Id: admin.Id,
-                CreatedAt: DateTime.UtcNow,
-                RemoteAvatarUrl: null
-            );
-            await _natsClient.PublishAsync(
-                subject: _natsSubjects.CreateUserAccount,
-                data: userAccPayload,
-                cancellationToken: cancellationToken
-            );
+            // send new user to user account manager
+            NewUserProfileModel newUserAccountModel = new()
+            {
+                Id = admin.Id,
+            };
+            await _userProfileManager.SubmitNewUserAccount(newUserAccountModel);
         }
 
         //***** Seed Roles *****

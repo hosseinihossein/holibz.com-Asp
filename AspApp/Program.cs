@@ -83,9 +83,9 @@ public class Program
 
         //******************* Data Protection *******************
         // Configure shared Data Protection keys in SQL DB
-        builder.Services.AddDataProtection()
+        /*builder.Services.AddDataProtection()
         .PersistKeysToDbContext<DataProtection_DbContext>() // Store keys in the same DB
-        .SetApplicationName("SharedIdentityApp"); // Must match across all servers
+        .SetApplicationName("SharedIdentityApp"); // Must match across all servers*/
 
 
         //******************* SecurityStampValidatorOptions *******************
@@ -208,14 +208,14 @@ public class Program
             new MongoClient(builder.Configuration["MongoDb:ConnectionString"])
         );
         // Register IMongoDatabase as a Singleton factory
-        builder.Services.AddSingleton<IMongoDatabase>(sp =>
+        /*builder.Services.AddSingleton<IMongoDatabase>(sp =>
         {
             var client = sp.GetRequiredService<IMongoClient>();
-            var dbName = builder.Configuration["MongoDb:DatabaseName"];
+            var dbName = builder.Configuration["MongoDb:UserAccountDb"];
             return client.GetDatabase(dbName);
-        });
+        });*/
         // Configs
-        builder.Services.Configure<MongoDbConfigs>(builder.Configuration.GetSection("MongoDb"));
+        builder.Services.AddSingleton<MongoDbConfigs>();
         // UserAccountManager
         builder.Services.AddSingleton<UserProfileManager>();
 
@@ -255,7 +255,7 @@ public class Program
 
         //**************************** Turnstile **************************
         builder.Services.AddSingleton<TurnstileService>();
-        builder.Services.Configure<TurnstileConfigs>(builder.Configuration.GetSection("Turnstile"));
+        builder.Services.AddSingleton<TurnstileConfigs>();
 
 
         //******************* Username Generator *******************
@@ -263,11 +263,13 @@ public class Program
 
 
         //******************* initialize database *******************
-        builder.Services.AddHostedService<Database_Initializer>();
+        builder.Services.AddHostedService<IdentityDb_Initializer>();
 
 
         //******************* Main Configs *******************
-        builder.Services.Configure<MainConfigs>(builder.Configuration);
+        builder.Services.AddSingleton<MainConfigs>();
+        //******************* Storage Configs *******************
+        builder.Services.AddSingleton<StorageConfigs>();
 
 
         var app = builder.Build();

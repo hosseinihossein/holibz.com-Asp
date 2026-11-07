@@ -7,22 +7,23 @@ namespace AspApp.Helpers;
 
 public class UserProfileManager
 {
-    private readonly IMongoCollection<BsonDocument> _userProfileCollection;
+    private readonly IMongoCollection<BsonDocument> _mongoCollection;
     public UserProfileManager(
-        IMongoDatabase mongoUserDb,
-        IOptions<MongoDbConfigs> mongoDbConfigsOptions
+        IMongoClient mongoClient,
+        MongoDbConfigs mongoDbConfigs
     )
     {
-        _userProfileCollection = mongoUserDb.GetCollection<BsonDocument>(mongoDbConfigsOptions.Value.ProfileCollection);
+        IMongoDatabase userAccountDb = mongoClient.GetDatabase(mongoDbConfigs.UserAccountDb);
+        _mongoCollection = userAccountDb.GetCollection<BsonDocument>(mongoDbConfigs.ProfileCollection);
     }
 
-    public async Task SubmitNewUserAccount(NewUserAccountModel model)
+    public async Task SubmitNewUserAccount(NewUserProfileModel model)
     {
         //create profile
         await CreateProfile(model);
     }
 
-    private async Task CreateProfile(NewUserAccountModel model)
+    private async Task CreateProfile(NewUserProfileModel model)
     {
         //create user profile document on mongodb
         var bsonDoc = new BsonDocument
@@ -31,13 +32,13 @@ public class UserProfileManager
             { "avatarUrl", new BsonString(model.AvatarUrl) },
             { "createdAt", new BsonDateTime(model.CreatedAt) },
         };
-        await _userProfileCollection.InsertOneAsync(bsonDoc);
+        await _mongoCollection.InsertOneAsync(bsonDoc);
     }
 
 
 }
 
-public class NewUserAccountModel
+public class NewUserProfileModel
 {
     public Guid Id { get; set; }
     public string? Name { get; set; }
