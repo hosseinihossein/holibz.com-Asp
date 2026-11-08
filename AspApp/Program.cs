@@ -2,7 +2,7 @@ using System.Net;
 using System.Security.Cryptography;
 using AspApp.Helpers;
 using AspApp.Models;
-using Microsoft.AspNetCore.DataProtection;
+//using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
@@ -31,7 +31,7 @@ public class Program
 
 
         //******************* Identity_DbContext *******************
-        builder.Services.AddDbContext<IdentityDbContext>(options =>
+        builder.Services.AddDbContext<Identity_DbContext>(options =>
         {
             options.UseNpgsql(builder.Configuration["Postgres:ConnectionString:Identity"]);
             //options.UseOpenIddict<Guid>();
@@ -262,8 +262,16 @@ public class Program
         builder.Services.AddSingleton<UsernameGenerator>();
 
 
-        //******************* initialize database *******************
-        builder.Services.AddHostedService<IdentityDb_Initializer>();
+        // ********** Config Forward Headers **********
+        builder.Services.Configure<ForwardedHeadersOptions>(options =>
+        {
+            options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedHost;
+
+            // Clear out the default networks (which only trust localhost by default)
+            // Because Nginx is handling security filters, we clear this so it accepts the headers passed from your Nginx container.
+            options.KnownIPNetworks.Clear();
+            options.KnownProxies.Clear();
+        });
 
 
         //******************* Main Configs *******************
@@ -275,11 +283,23 @@ public class Program
         var app = builder.Build();
 
 
-        app.UseForwardedHeaders(new ForwardedHeadersOptions
+        // ********** Initialize IdentityDb **********
+        await using (var scope = app.Services.CreateAsyncScope())
+        {
+            var identityDb = scope.ServiceProvider.GetRequiredService<Identity_DbContext>();
+            var userManager = scope.ServiceProvider.GetRequiredService<UserManager<IdentityUser<Guid>>>();
+            var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole<Guid>>>();
+            await IdentityDb_Initializer.StartInitializing(identityDb, userManager, roleManager, app.Configuration);
+        }
+
+
+        // ********** User Forward Headers **********
+        app.UseForwardedHeaders();
+        /*(new ForwardedHeadersOptions
         {
             ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedHost,
             KnownIPNetworks = { new System.Net.IPNetwork(IPAddress.Parse("172.18.0.0"), 16) }
-        });
+        });*/
 
 
         app.UseRouting();

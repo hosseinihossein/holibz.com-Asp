@@ -1,7 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using AspApp.Helpers;
-using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
+//using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
@@ -26,111 +26,57 @@ public class Identity_DbContext : IdentityDbContext<IdentityUser<Guid>, Identity
 }
 
 //*************** Identity_DbContext ****************
-public class IdentityDb_Initializer : IHostedService
+public static class IdentityDb_Initializer
 {
-    private readonly Identity_DbContext _identityDb;
-    private readonly UserManager<IdentityUser<Guid>> _userManager;
-    private readonly RoleManager<IdentityRole<Guid>> _roleManager;
-    private readonly ILogger<IdentityDb_Initializer> _logger;
-    private readonly string _adminUserName;
-    private readonly string _adminPassword;
-    private readonly string _adminEmail;
-    private readonly string _adminRoleName;
-    readonly UserProfileManager _userProfileManager;
-
-    public IdentityDb_Initializer(
+    public static async Task StartInitializing(
         Identity_DbContext identityDb,
         UserManager<IdentityUser<Guid>> userManager,
         RoleManager<IdentityRole<Guid>> roleManager,
-        ILogger<IdentityDb_Initializer> logger,
-        IConfiguration configuration,
-        UserProfileManager userProfileManager
+        IConfiguration configuration
     )
     {
-        _identityDb = identityDb;
-        _userManager = userManager;
-        _roleManager = roleManager;
-        _logger = logger;
-        _adminEmail = configuration["Identity:AdminEmail"]!;
-        _adminUserName = configuration["Identity:AdminUserName"]!;
-        _adminPassword = configuration["Identity:AdminPassword"]!;
-        _adminRoleName = configuration["Identity:AdminRoleName"]!;
-        _userProfileManager = userProfileManager;
-    }
+        string adminEmail = configuration["Identity:AdminEmail"]!;
+        string adminUserName = configuration["Identity:AdminUserName"]!;
+        string adminPassword = configuration["Identity:AdminPassword"]!;
+        string adminRoleName = configuration["Identity:AdminRoleName"]!;
 
-    public async Task StartAsync(CancellationToken cancellationToken)
-    {
-        await _identityDb.Database.MigrateAsync();
+        await identityDb.Database.MigrateAsync();
 
         //***** Create "admin" Identity *****
-        IdentityUser<Guid>? admin = await _userManager.FindByNameAsync("admin");
+        IdentityUser<Guid>? admin = await userManager.FindByNameAsync("admin");
         if (admin == null)
         {
-            string adminPassword = _adminPassword;
             admin = new IdentityUser<Guid>
             {
-                UserName = _adminUserName,
-                Email = _adminEmail,
+                UserName = adminUserName,
+                Email = adminEmail,
                 EmailConfirmed = true,
             };
-            IdentityResult result = await _userManager.CreateAsync(admin, adminPassword);
+            IdentityResult result = await userManager.CreateAsync(admin, adminPassword);
 
             if (!result.Succeeded)
             {
                 foreach (var error in result.Errors)
                 {
-                    //Console.WriteLine(error.Description);
-                    _logger.LogWarning(error.Description);
+                    Console.WriteLine(error.Description);
+                    //_logger.LogWarning(error.Description);
                 }
                 return;
             }
 
             // send new user to user account manager
-            NewUserProfileModel newUserAccountModel = new()
+            /*NewUserProfileModel newUserAccountModel = new()
             {
                 Id = admin.Id,
             };
-            await _userProfileManager.SubmitNewUserAccount(newUserAccountModel);
+            await _userProfileManager.SubmitNewUserAccount(newUserAccountModel);*/
         }
 
         //***** Seed Roles *****
-        if (await _roleManager.FindByNameAsync(_adminRoleName) == null)
+        if (await roleManager.FindByNameAsync(adminRoleName) == null)
         {
-            await _roleManager.CreateAsync(new IdentityRole<Guid>(_adminRoleName));
-            await _userManager.AddToRoleAsync(admin, _adminRoleName);
+            await roleManager.CreateAsync(new IdentityRole<Guid>(adminRoleName));
+            await userManager.AddToRoleAsync(admin, adminRoleName);
         }
     }
-
-    public Task StopAsync(CancellationToken cancellationToken)
-    {
-        return Task.CompletedTask;
-    }
 }
-
-/*public class Identity_UserDbModel : IdentityUser<Guid>
-{
-    [MaxLength(128)]
-    public string? DisplayName { get; set; }
-    [MaxLength(1024)]
-    public string? Description { get; set; }
-    public bool PublicEmail { get; set; } = false;
-    public byte _imageVersion { get; set; } = 0;
-    [NotMapped]
-    public int ImageVersion
-    {
-        get => _imageVersion;
-        set => _imageVersion = value > 255 || value < 0 ? (byte)0 : (byte)value;
-    }
-    public bool HasImage { get; set; } = false;
-    [MaxLength(1024)]
-    public string? RemoteImageUrl { get; set; }
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-}
-
-public class Identity_RoleDbModel : IdentityRole<Guid>
-{
-    public Identity_RoleDbModel() : base() { }
-    public Identity_RoleDbModel(string roleName) : base(roleName) { }
-    [MaxLength(128)]
-    public string Description { get; set; } = string.Empty;
-}*/

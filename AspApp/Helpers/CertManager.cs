@@ -33,23 +33,17 @@ public class CertManager
         if (!File.Exists(EcdsaSigningCertPath))
         {
             // Create and save the Ecdsa signing cert
-            X509Certificate2 newCert = GenerateEcdsaSigningCert();
-            await File.WriteAllBytesAsync(
-                EcdsaSigningCertPath,
-                newCert.Export(X509ContentType.Pfx, string.Empty)
-            );
-            return newCert;
+            byte[] certBytes = GenerateAndExportEcdsaSigningCert(string.Empty);
+            await File.WriteAllBytesAsync(EcdsaSigningCertPath, certBytes);
         }
 
-        using X509Certificate2 cert = X509CertificateLoader.LoadPkcs12FromFile(
+        return X509CertificateLoader.LoadPkcs12FromFile(
             EcdsaSigningCertPath,
             string.Empty,
-            X509KeyStorageFlags.MachineKeySet | X509KeyStorageFlags.EphemeralKeySet
+            X509KeyStorageFlags.EphemeralKeySet | X509KeyStorageFlags.Exportable
         );
-
-        return cert;
     }
-    private X509Certificate2 GenerateEcdsaSigningCert()
+    private byte[] GenerateAndExportEcdsaSigningCert(string password)
     {
         // 1. Create an ECDSA key pair
         using ECDsa ecdsa = ECDsa.Create(ECCurve.NamedCurves.nistP256);
@@ -83,7 +77,7 @@ public class CertManager
             DateTimeOffset.UtcNow.AddYears(2)
         );
 
-        return ecdsaSigningCert;
+        return ecdsaSigningCert.Export(X509ContentType.Pfx, password);
     }
 
     public async Task<X509Certificate2> GetEcdsaKeyEncryptionCert()
@@ -91,23 +85,17 @@ public class CertManager
         if (!File.Exists(EcdsaKeyEncryptionCertPath))
         {
             // Create and save the Ecdsa KeyEncryption cert
-            X509Certificate2 newCert = GenerateEcdsaKeyEncryptionCert();
-            await File.WriteAllBytesAsync(
-                EcdsaKeyEncryptionCertPath,
-                newCert.Export(X509ContentType.Pfx, string.Empty)
-            );
-            return newCert;
+            byte[] certBytes = GenerateAndExportEcdsaKeyEncryptionCert(string.Empty);
+            await File.WriteAllBytesAsync(EcdsaKeyEncryptionCertPath, certBytes);
         }
 
-        using X509Certificate2 cert = X509CertificateLoader.LoadPkcs12FromFile(
+        return X509CertificateLoader.LoadPkcs12FromFile(
             EcdsaKeyEncryptionCertPath,
             string.Empty,
-            X509KeyStorageFlags.MachineKeySet | X509KeyStorageFlags.EphemeralKeySet
+            X509KeyStorageFlags.EphemeralKeySet | X509KeyStorageFlags.Exportable
         );
-
-        return cert;
     }
-    private X509Certificate2 GenerateEcdsaKeyEncryptionCert()
+    private byte[] GenerateAndExportEcdsaKeyEncryptionCert(string password)
     {
         // 1. Create an ECDSA key pair
         using ECDsa ecdsa = ECDsa.Create(ECCurve.NamedCurves.nistP256);
@@ -141,7 +129,7 @@ public class CertManager
             DateTimeOffset.UtcNow.AddYears(2)
         );
 
-        return ecdsaKeyEncryptionCert;
+        return ecdsaKeyEncryptionCert.Export(X509ContentType.Pfx, password);
     }
 
 
@@ -151,31 +139,32 @@ public class CertManager
     {
         if (!File.Exists(RsaSigningCertPath))
         {
-            // Create and save the Rsa signing cert
-            X509Certificate2 newCert = GenerateRsaSigningCert();
-            await File.WriteAllBytesAsync(
-                RsaSigningCertPath,
-                newCert.Export(X509ContentType.Pfx, string.Empty)
-            );
-            return newCert;
+            // Create, export, and save the Rsa signing cert
+            // We wrap the generation and export together to handle key lifetime safely
+            byte[] certBytes = GenerateAndExportRsaSigningCert(string.Empty);
+            await File.WriteAllBytesAsync(RsaSigningCertPath, certBytes);
         }
 
-        using X509Certificate2 cert = X509CertificateLoader.LoadPkcs12FromFile(
+        // Use EphemeralKeySet for modern, fast, in-memory loading (great for containers/cloud)
+        // Add Exportable if your application needs to export this cert again after loading it
+        return X509CertificateLoader.LoadPkcs12FromFile(
             RsaSigningCertPath,
             string.Empty,
-            X509KeyStorageFlags.MachineKeySet | X509KeyStorageFlags.EphemeralKeySet
+            X509KeyStorageFlags.EphemeralKeySet | X509KeyStorageFlags.Exportable
         );
-
-        return cert;
     }
-    private X509Certificate2 GenerateRsaSigningCert()
+
+    private byte[] GenerateAndExportRsaSigningCert(string password)
     {
+        // Do NOT dispose the RSA algorithm before exporting, 
+        // as it owns the private key needed for the PFX generation.
         using var algorithm = RSA.Create(keySizeInBits: 4096);
 
         var subject = new X500DistinguishedName("CN=RsaSigningCertificate");
         var request = new CertificateRequest(
             subject,
-            algorithm, HashAlgorithmName.SHA256,
+            algorithm,
+            HashAlgorithmName.SHA256,
             RSASignaturePadding.Pkcs1
         );
 
@@ -191,38 +180,41 @@ public class CertManager
             DateTimeOffset.UtcNow.AddYears(2)
         );
 
-        return rsaSigningCert;
+        // Export the certificate directly while the RSA key is guaranteed alive
+        return rsaSigningCert.Export(X509ContentType.Pfx, password);
     }
+
 
     public async Task<X509Certificate2> GetRsaKeyEncryptionCert()
     {
         if (!File.Exists(RsaKeyEncryptionCertPath))
         {
-            // Create and save the Rsa encryption cert
-            X509Certificate2 newCert = GenerateRsaKeyEncryptionCert();
-            await File.WriteAllBytesAsync(
-                RsaKeyEncryptionCertPath,
-                newCert.Export(X509ContentType.Pfx, string.Empty)
-            );
-            return newCert;
+            // Create, export, and save the Rsa encryption cert
+            // We wrap the generation and export together to handle key lifetime safely
+            byte[] certBytes = GenerateAndExportRsaKeyEncryptionCert(string.Empty);
+            await File.WriteAllBytesAsync(RsaKeyEncryptionCertPath, certBytes);
         }
 
-        using X509Certificate2 cert = X509CertificateLoader.LoadPkcs12FromFile(
+        // Use EphemeralKeySet for modern, fast, in-memory loading (great for containers/cloud)
+        // Add Exportable if your application needs to export this cert again after loading it
+        return X509CertificateLoader.LoadPkcs12FromFile(
             RsaKeyEncryptionCertPath,
             string.Empty,
-            X509KeyStorageFlags.MachineKeySet | X509KeyStorageFlags.EphemeralKeySet
+            X509KeyStorageFlags.EphemeralKeySet | X509KeyStorageFlags.Exportable
         );
-
-        return cert;
     }
-    private X509Certificate2 GenerateRsaKeyEncryptionCert()
+
+    private byte[] GenerateAndExportRsaKeyEncryptionCert(string password)
     {
+        // Do NOT dispose the RSA algorithm before exporting, 
+        // as it owns the private key needed for the PFX generation.
         using var algorithm = RSA.Create(keySizeInBits: 4096);
 
         var subject = new X500DistinguishedName("CN=RsaEncryptionCertificate");
         var request = new CertificateRequest(
             subject,
-            algorithm, HashAlgorithmName.SHA256,
+            algorithm,
+            HashAlgorithmName.SHA256,
             RSASignaturePadding.Pkcs1
         );
 
@@ -238,8 +230,10 @@ public class CertManager
             DateTimeOffset.UtcNow.AddYears(2)
         );
 
-        return rsaKeyEncryptionCert;
+        // Export the certificate directly while the RSA key is guaranteed alive
+        return rsaKeyEncryptionCert.Export(X509ContentType.Pfx, password);
     }
+
 
 
 
