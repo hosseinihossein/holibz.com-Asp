@@ -1,0 +1,64 @@
+name: Deploy via SSH Agent
+
+on:
+  push:
+    branches:
+      - main # Triggers the workflow when you push to the main branch
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Fetch the project files from the repository
+      - name: Check out repository code
+        uses: actions/checkout@v7
+
+      # 2. Setup the SSH key securely using the SSH agent
+      - name: Configure SSH Agent
+        uses: webfactory/ssh-agent@v0.10.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      # 3. Add your server to known hosts to prevent "host verification failed" errors
+      - name: Scan Remote Server Host Key (Prevents MITM prompts)
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
+
+      # 4. Sync files to the server using rsync
+      - name: Deploy files via Rsync
+        run: |
+          rsync -avz --delete \
+            ./AspApp/MyOutput/ \
+            ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/opt/myApps/AspApp/MyAspApp/
+
+      # 5. run the following command on the host server
+      - name: Execute Commands on Ubuntu Server
+        run: |
+          # Use standard SSH command formatting to pass scripts to the server
+          ssh ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'EOF'
+            echo "Connected securely using webfactory/ssh-agent!"
+            whoami
+            
+            # Navigate to directory and deploy your ASP.NET Core Docker Container
+	          cd /opt/myApps/AspApp/
+
+	          # copy appsettings.json
+	          cp appsettings.json MyAspApp/appsettings.json
+
+	          # stop and remove aspapp
+	          docker rm -f aspapp
+
+	          # remove the last version of aspapp docker image
+	          docker rmi aspapp:1.0
+            
+	          # build the new version of aspapp
+            docker build -t aspapp:1.0 .
+
+	          # run aspapp new version
+            docker run --name aspapp \
+	            --network=my-bridge \
+	            -v profile-avatar:/MyAspApp/Storage/UserProfile/Avatar/ \
+              -d aspapp:1.0
+          EOF
