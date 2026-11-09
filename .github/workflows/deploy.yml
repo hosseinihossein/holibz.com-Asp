@@ -60,5 +60,6 @@ jobs:
             docker run -d \
               --name aspapp \
               --network=my-bridge \
+              --user root \
               aspapp:1.0
           EOF

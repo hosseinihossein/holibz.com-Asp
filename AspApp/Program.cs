@@ -1,5 +1,6 @@
 using System.Net;
 using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
 using AspApp.Helpers;
 using AspApp.Models;
 //using Microsoft.AspNetCore.DataProtection;
@@ -109,17 +110,17 @@ public class Program
         CertManager certManager = new(builder.Environment);
         builder.Services.AddSingleton<CertManager>(certManager);
 
-
+        X509Certificate2 oidcClientEncryptionCert = await certManager.GetRsaKeyEncryptionCert();
         //******************* OpenIddict *******************
         builder.Services.AddOpenIddict()
-        .AddClient(async options =>
+        .AddClient(options =>//must not be defined as async
         {
             // Note: this sample uses the code flow, but you can enable the other flows if necessary.
             options.AllowAuthorizationCodeFlow();
 
             // Register the signing and encryption credentials used to protect
             // sensitive data like the state tokens produced by OpenIddict.
-            options.AddEncryptionCertificate(await certManager.GetRsaKeyEncryptionCert())
+            options.AddEncryptionCertificate(oidcClientEncryptionCert)
             .AddSigningKey(new ECDsaSecurityKey(ECDsa.Create(ECCurve.NamedCurves.nistP256)));
 
             // Register the ASP.NET Core host and configure the ASP.NET Core-specific options.
