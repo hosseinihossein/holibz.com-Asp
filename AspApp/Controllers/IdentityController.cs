@@ -79,7 +79,7 @@ public class IdentityController : ControllerBase
                 roles = (await _userManager.GetRolesAsync(user)).ToArray(),
             });
         }
-        return NotFound();
+        return Ok(null);
     }
 
 
