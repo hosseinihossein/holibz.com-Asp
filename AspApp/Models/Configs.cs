@@ -4,9 +4,9 @@ public class MainConfigs
 {
     public string MainDomainName { get; }
 
-    public MainConfigs(IConfiguration configuration)
+    public MainConfigs(string mainDomainName)
     {
-        MainDomainName = configuration.GetValue<string>("MainDomainName") ?? "https://holibz.com";
+        MainDomainName = mainDomainName;
     }
 }
 
@@ -15,13 +15,10 @@ public class TurnstileConfigs
     public bool Enabled { get; }
     public string SecretKey { get; }
 
-    public TurnstileConfigs(IConfiguration configuration)
+    public TurnstileConfigs(string secretKey, bool enabled)
     {
-        SecretKey = configuration.GetValue<string>("Turnstile:SecretKey") ?? string.Empty;
-        if (!string.IsNullOrWhiteSpace(SecretKey))
-        {
-            Enabled = configuration.GetValue<bool>("Turnstile:Enabled");
-        }
+        SecretKey = secretKey;
+        Enabled = enabled;
     }
 }
 
@@ -35,14 +32,14 @@ public class MongoDbConfigs
     public string LibraryCollection { get; }
 
 
-    public MongoDbConfigs(IConfiguration configuration)
+    public MongoDbConfigs(string connectionString, string userAccDb, string profileCol, string libDb, string libCol)
     {
-        ConnectionString = configuration.GetValue<string>("MongoDb:ConnectionString") ?? "mongodb://mongodb:27017";
-        UserAccountDb = configuration.GetValue<string>("MongoDb:UserAccountDb") ?? "UserAccount_Db";
-        ProfileCollection = configuration.GetValue<string>("MongoDb:ProfileCollection") ?? "Profile";
+        ConnectionString = connectionString;
+        UserAccountDb = userAccDb;
+        ProfileCollection = profileCol;
 
-        LibraryDb = configuration.GetValue<string>("MongoDb:LibraryDb") ?? "Library_Db";
-        LibraryCollection = configuration.GetValue<string>("MongoDb:LibraryCollection") ?? "Library";
+        LibraryDb = libDb;
+        LibraryCollection = libCol;
     }
 }
 

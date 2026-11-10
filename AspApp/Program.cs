@@ -209,7 +209,13 @@ public class Program
             new MongoClient(builder.Configuration["MongoDb:ConnectionString"])
         );
         // Configs
-        builder.Services.AddSingleton<MongoDbConfigs>(sp => new MongoDbConfigs(builder.Configuration));
+        builder.Services.AddSingleton<MongoDbConfigs>(sp => new MongoDbConfigs(
+            builder.Configuration.GetValue<string>("MongoDb:ConnectionString")!,
+            builder.Configuration.GetValue<string>("MongoDb:UserAccountDb")!,
+            builder.Configuration.GetValue<string>("MongoDb:ProfileCollection")!,
+            builder.Configuration.GetValue<string>("MongoDb:LibraryDb")!,
+            builder.Configuration.GetValue<string>("MongoDb:LibraryCollection")!
+        ));
         // UserAccountManager
         builder.Services.AddSingleton<UserProfileManager>();
 
@@ -225,7 +231,10 @@ public class Program
 
         //**************************** Turnstile **************************
         builder.Services.AddSingleton<TurnstileService>();
-        builder.Services.AddSingleton<TurnstileConfigs>(sp => new TurnstileConfigs(builder.Configuration));
+        builder.Services.AddSingleton<TurnstileConfigs>(sp => new TurnstileConfigs(
+            builder.Configuration.GetValue<string>("Turnstile:SecretKey")!,
+            builder.Configuration.GetValue<bool>("Turnstile:Enabled")
+        ));
 
 
         //******************* Username Generator *******************
@@ -245,7 +254,7 @@ public class Program
 
 
         //******************* Main Configs *******************
-        builder.Services.AddSingleton<MainConfigs>((sp) => new MainConfigs(builder.Configuration));
+        builder.Services.AddSingleton<MainConfigs>((sp) => new MainConfigs(builder.Configuration["MainDomainName"] ?? "https://holibz.com"));
         //******************* Storage Configs *******************
         builder.Services.AddSingleton<StorageConfigs>(sp => new StorageConfigs(builder.Environment));
 

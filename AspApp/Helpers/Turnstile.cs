@@ -18,12 +18,12 @@ public class TurnstileService
 
     public TurnstileService(
         IHttpClientFactory httpClientFactory,
-        IOptions<TurnstileConfigs> turnstileOptions
+        TurnstileConfigs turnstileOptions
     )
     {
         _httpClientFactory = httpClientFactory;
-        _secretKey = turnstileOptions.Value.SecretKey;
-        _turnstileEnabled = turnstileOptions.Value.Enabled;
+        _secretKey = turnstileOptions.SecretKey;
+        _turnstileEnabled = turnstileOptions.Enabled;
     }
 
     public async Task<TurnstileResponse?> ValidateTokenAsync(HttpContext httpContext, string? token = null)
