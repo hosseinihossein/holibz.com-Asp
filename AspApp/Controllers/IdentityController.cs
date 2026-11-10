@@ -137,7 +137,7 @@ public class IdentityController : ControllerBase
     }
 
     [HttpPost]
-    //[ValidateTurnstile]
+    [ValidateTurnstile]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> LoginWithGitHub([FromForm] Identity_LoginWithProvider_FormModel formModel)
     {
@@ -153,7 +153,7 @@ public class IdentityController : ControllerBase
     }
 
     [HttpPost]
-    //[ValidateTurnstile]
+    [ValidateTurnstile]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> LoginWithGoogle([FromForm] Identity_LoginWithProvider_FormModel formModel)
     {
@@ -486,8 +486,8 @@ public class IdentityController : ControllerBase
     }
 
     [HttpPost]
-    [Authorize]
     [ValidateTurnstile]
+    [Authorize]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> ResendEmailValidation()
     {
@@ -510,8 +510,8 @@ public class IdentityController : ControllerBase
     }
 
     [HttpPost]
-    [Authorize]
     [ValidateAntiForgeryToken]
+    [Authorize]
     public async Task<IActionResult> ChangeEmail([FromForm][StringLength(128)] string newEmail)
     {
         IdentityUser<Guid>? user = await _userManager.GetUserAsync(User);

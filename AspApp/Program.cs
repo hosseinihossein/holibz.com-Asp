@@ -208,41 +208,10 @@ public class Program
         builder.Services.AddSingleton<IMongoClient>(sp =>
             new MongoClient(builder.Configuration["MongoDb:ConnectionString"])
         );
-        // Register IMongoDatabase as a Singleton factory
-        /*builder.Services.AddSingleton<IMongoDatabase>(sp =>
-        {
-            var client = sp.GetRequiredService<IMongoClient>();
-            var dbName = builder.Configuration["MongoDb:UserAccountDb"];
-            return client.GetDatabase(dbName);
-        });*/
         // Configs
         builder.Services.AddSingleton<MongoDbConfigs>();
         // UserAccountManager
         builder.Services.AddSingleton<UserProfileManager>();
-
-
-        //**************************** NATS **************************
-        // Register the NATS Client into the DI Container
-        /*builder.Services.AddNatsClient(options =>
-        {
-            options.ConfigureOptions(opts =>
-                opts.Configure(natsBuilder =>
-                    // Update the URL using standard C# class property mutation
-                    natsBuilder.Opts = natsBuilder.Opts with
-                    {
-                        Url = builder.Configuration["NATS:Url"] ?? "nats://nats:4222"
-                    }
-                )
-            );
-        });
-        builder.Services.Configure<NatsSubjects>(builder.Configuration.GetSection("NATS:Subjects"));
-        builder.Services.Configure<NatsStreams>(builder.Configuration.GetSection("NATS:Streams"));*/
-
-
-        //**************************** Logger **************************
-        /*builder.Logging.ClearProviders();// Optional: Remove console/debug providers if desired
-        builder.Logging.AddConsole(); // Keep Console for local visibility
-        builder.Logging.AddNats();// Enable transmission over NATS*/
 
 
         //**************************** Email Sender **************************
@@ -296,14 +265,11 @@ public class Program
 
         // ********** User Forward Headers **********
         app.UseForwardedHeaders();
-        /*(new ForwardedHeadersOptions
-        {
-            ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedHost,
-            KnownIPNetworks = { new System.Net.IPNetwork(IPAddress.Parse("172.18.0.0"), 16) }
-        });*/
 
 
         app.UseRouting();
+
+        app.UseAntiforgery();
 
         app.UseAuthentication();
         app.UseAuthorization();
