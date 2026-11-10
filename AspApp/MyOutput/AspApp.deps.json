@@ -10,6 +10,7 @@
       "AspApp/1.0.0": {
         "dependencies": {
           "MailKit": "4.18.2",
+          "Microsoft.AspNetCore.DataProtection.EntityFrameworkCore": "10.0.14",
           "Microsoft.AspNetCore.Identity.EntityFrameworkCore": "10.0.14",
           "Microsoft.EntityFrameworkCore": "10.0.14",
           "MongoDB.Driver": "3.13.0",
@@ -45,6 +46,17 @@
           "lib/net10.0/MailKit.dll": {
             "assemblyVersion": "4.18.0.0",
             "fileVersion": "4.18.2.0"
+          }
+        }
+      },
+      "Microsoft.AspNetCore.DataProtection.EntityFrameworkCore/10.0.14": {
+        "dependencies": {
+          "Microsoft.EntityFrameworkCore": "10.0.14"
+        },
+        "runtime": {
+          "lib/net10.0/Microsoft.AspNetCore.DataProtection.EntityFrameworkCore.dll": {
+            "assemblyVersion": "10.0.14.0",
+            "fileVersion": "10.0.1426.52326"
           }
         }
       },
@@ -471,6 +483,13 @@
       "sha512": "sha512-ofqddpSbdrD00NqTD0ZyVfKvrl/ZZ70VFFEQ+DuR8r8CdbY3U02/sdb0CSQBNUqJifsXfVHIwRe1ToR2MvJJkw==",
       "path": "mailkit/4.18.2",
       "hashPath": "mailkit.4.18.2.nupkg.sha512"
+    },
+    "Microsoft.AspNetCore.DataProtection.EntityFrameworkCore/10.0.14": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-zXov4zfbIsBCAYniekMemgWSAMpfzQ1jhWGs4k2WIr0n1Ac4osMD1xbqf31CllPZ2z4dTsYzWRmGZO+czKGOxw==",
+      "path": "microsoft.aspnetcore.dataprotection.entityframeworkcore/10.0.14",
+      "hashPath": "microsoft.aspnetcore.dataprotection.entityframeworkcore.10.0.14.nupkg.sha512"
     },
     "Microsoft.AspNetCore.Identity.EntityFrameworkCore/10.0.14": {
       "type": "package",

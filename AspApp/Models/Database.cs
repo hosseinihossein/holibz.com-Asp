@@ -1,7 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using AspApp.Helpers;
-//using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
+using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
@@ -10,14 +10,14 @@ using Microsoft.Extensions.Options;
 namespace AspApp.Models;
 
 //*************** DataProtection_DbContext ****************
-/*public class DataProtection_DbContext : DbContext, IDataProtectionKeyContext
+public class DataProtection_DbContext : DbContext, IDataProtectionKeyContext
 {
     public DataProtection_DbContext(DbContextOptions<DataProtection_DbContext> options)
     : base(options) { }
 
     // This maps to the table that stores keys
     public DbSet<DataProtectionKey> DataProtectionKeys { get; set; }
-}*/
+}
 
 //*************** Identity_DbContext ****************
 public class Identity_DbContext : IdentityDbContext<IdentityUser<Guid>, IdentityRole<Guid>, Guid>
@@ -30,6 +30,7 @@ public static class IdentityDb_Initializer
 {
     public static async Task StartInitializing(
         Identity_DbContext identityDb,
+        DataProtection_DbContext dataProtectionDb,
         UserManager<IdentityUser<Guid>> userManager,
         RoleManager<IdentityRole<Guid>> roleManager,
         IConfiguration configuration
@@ -41,6 +42,7 @@ public static class IdentityDb_Initializer
         string adminRoleName = configuration["Identity:AdminRoleName"]!;
 
         await identityDb.Database.MigrateAsync();
+        await dataProtectionDb.Database.MigrateAsync();
 
         //***** Create "admin" Identity *****
         IdentityUser<Guid>? admin = await userManager.FindByNameAsync("admin");

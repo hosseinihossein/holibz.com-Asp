@@ -3,7 +3,7 @@ using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using AspApp.Helpers;
 using AspApp.Models;
-//using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
@@ -38,10 +38,10 @@ public class Program
             //options.UseOpenIddict<Guid>();
         });
         //******************* DataProtection_DbContext *******************
-        /*builder.Services.AddDbContext<DataProtection_DbContext>(options =>
+        builder.Services.AddDbContext<DataProtection_DbContext>(options =>
         {
             options.UseNpgsql(builder.Configuration["Postgres:ConnectionString:DataProtection"]);
-        });*/
+        });
 
 
         //******************* Identity service *******************
@@ -84,9 +84,9 @@ public class Program
 
         //******************* Data Protection *******************
         // Configure shared Data Protection keys in SQL DB
-        /*builder.Services.AddDataProtection()
+        builder.Services.AddDataProtection()
         .PersistKeysToDbContext<DataProtection_DbContext>() // Store keys in the same DB
-        .SetApplicationName("SharedIdentityApp"); // Must match across all servers*/
+        .SetApplicationName("SharedIdentityApp"); // Must match across all servers
 
 
         //******************* SecurityStampValidatorOptions *******************
@@ -192,7 +192,7 @@ public class Program
 
 
         //******************* Controllers *******************
-        builder.Services.AddControllersWithViews();
+        builder.Services.AddControllers();
 
 
         //******************* AntiForgery *******************
@@ -209,7 +209,7 @@ public class Program
             new MongoClient(builder.Configuration["MongoDb:ConnectionString"])
         );
         // Configs
-        builder.Services.AddSingleton<MongoDbConfigs>();
+        builder.Services.AddSingleton<MongoDbConfigs>(sp => new MongoDbConfigs(builder.Configuration));
         // UserAccountManager
         builder.Services.AddSingleton<UserProfileManager>();
 
@@ -225,7 +225,7 @@ public class Program
 
         //**************************** Turnstile **************************
         builder.Services.AddSingleton<TurnstileService>();
-        builder.Services.AddSingleton<TurnstileConfigs>();
+        builder.Services.AddSingleton<TurnstileConfigs>(sp => new TurnstileConfigs(builder.Configuration));
 
 
         //******************* Username Generator *******************
@@ -245,9 +245,9 @@ public class Program
 
 
         //******************* Main Configs *******************
-        builder.Services.AddSingleton<MainConfigs>();
+        builder.Services.AddSingleton<MainConfigs>((sp) => new MainConfigs(builder.Configuration));
         //******************* Storage Configs *******************
-        builder.Services.AddSingleton<StorageConfigs>();
+        builder.Services.AddSingleton<StorageConfigs>(sp => new StorageConfigs(builder.Environment));
 
 
         var app = builder.Build();
@@ -257,9 +257,10 @@ public class Program
         await using (var scope = app.Services.CreateAsyncScope())
         {
             var identityDb = scope.ServiceProvider.GetRequiredService<Identity_DbContext>();
+            var dataProtectionDb = scope.ServiceProvider.GetRequiredService<DataProtection_DbContext>();
             var userManager = scope.ServiceProvider.GetRequiredService<UserManager<IdentityUser<Guid>>>();
             var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole<Guid>>>();
-            await IdentityDb_Initializer.StartInitializing(identityDb, userManager, roleManager, app.Configuration);
+            await IdentityDb_Initializer.StartInitializing(identityDb, dataProtectionDb, userManager, roleManager, app.Configuration);
         }
 
 
@@ -269,7 +270,7 @@ public class Program
 
         app.UseRouting();
 
-        //app.UseAntiforgery();
+        app.UseAntiforgery();
 
         app.UseAuthentication();
         app.UseAuthorization();

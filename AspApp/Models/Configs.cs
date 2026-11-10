@@ -48,15 +48,12 @@ public class MongoDbConfigs
 
 public class StorageConfigs
 {
-    readonly ILogger<StorageConfigs> _logger;
     public DirectoryInfo StorageDirInfo { get; }
     public DirectoryInfo UserProfileDirInfo { get; }
     public DirectoryInfo UserProfileAvatarDirInfo { get; }
 
-    public StorageConfigs(IWebHostEnvironment env, ILogger<StorageConfigs> logger)
+    public StorageConfigs(IWebHostEnvironment env)
     {
-        _logger = logger;
-
         try
         {
             // Build the absolute paths sequentially
@@ -70,9 +67,9 @@ public class StorageConfigs
             UserProfileDirInfo = EnsureSecureDirectory(userProfilePath);
             UserProfileAvatarDirInfo = EnsureSecureDirectory(avatarPath);
         }
-        catch (Exception ex)
+        catch// (Exception ex)
         {
-            _logger.LogError(ex, "Critical failure initializing file system storage folders.");
+            Console.WriteLine("** Critical failure initializing file system storage folders.");
             throw; // Re-throw on initialization failure so the container crashes early if storage is misconfigured
         }
     }
@@ -95,7 +92,7 @@ public class StorageConfigs
             }
             catch (Exception e)
             {
-                _logger.LogWarning("Failed setting Linux permissions for path {Path}: {Message}", path, e.Message);
+                Console.WriteLine($"Failed setting Linux permissions for path {path}: {e.Message}");
             }
         }
 
