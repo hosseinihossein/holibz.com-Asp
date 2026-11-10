@@ -260,7 +260,17 @@ public class IdentityController : ControllerBase
                 if (!user.EmailConfirmed)
                 {
                     //send email validation link
-                    await SendEmailValidationLink(user);
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            await SendEmailValidationLink(user);
+                        }
+                        catch (Exception e)
+                        {
+                            Console.WriteLine(e.ToString());
+                        }
+                    });
                 }
 
                 // send new user to user account manager
@@ -341,7 +351,17 @@ public class IdentityController : ControllerBase
                 if (!user.EmailConfirmed)
                 {
                     //send email validation link
-                    await SendEmailValidationLink(user);
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            await SendEmailValidationLink(user);
+                        }
+                        catch (Exception e)
+                        {
+                            Console.WriteLine(e.ToString());
+                        }
+                    });
                 }
 
                 // send new user to user account manager
@@ -372,7 +392,7 @@ public class IdentityController : ControllerBase
     [HttpPost]
     [Authorize]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> LogoutAsync()
+    public async Task<IActionResult> Logout()
     {
         await _signInManager.SignOutAsync();
         return Ok();
@@ -396,7 +416,17 @@ public class IdentityController : ControllerBase
         if (result.Succeeded)
         {
             //send email validation link
-            _ = SendEmailValidationLink(user);
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await SendEmailValidationLink(user);
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine(e.ToString());
+                }
+            });
 
             // send new user to user account manager
             NewUserProfileModel newUserAccountModel = new()
@@ -429,7 +459,7 @@ public class IdentityController : ControllerBase
         //***** Sending Email *****
         string emailMessage = $"<h4>Hi dear {user.UserName}</h4>" +
         "<p>Please click " +
-        $"<a href='{_mainConfigs.MainDomainName}/api/Identity/ConfirmEmail?token={Uri.EscapeDataString(token)}' " +
+        $"<a href='{_mainConfigs.MainDomainName}/api/identity/ConfirmEmail?token={Uri.EscapeDataString(token)}' " +
         "target='_blank'>'Here'</a>" +
         " to confirm your email address.</p>";
 

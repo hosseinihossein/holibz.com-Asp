@@ -29,9 +29,12 @@ public class UserProfileManager
         var bsonDoc = new BsonDocument
         {
             {"_id", new BsonBinaryData(model.Id, GuidRepresentation.Standard)},
-            { "avatarUrl", new BsonString(model.AvatarUrl) },
             { "createdAt", new BsonDateTime(model.CreatedAt) },
         };
+        if (!string.IsNullOrWhiteSpace(model.AvatarUrl))
+        {
+            bsonDoc.Add("avatarUrl", new BsonString(model.AvatarUrl));
+        }
         await _mongoCollection.InsertOneAsync(bsonDoc);
     }
 
