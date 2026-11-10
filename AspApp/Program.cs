@@ -192,7 +192,7 @@ public class Program
 
 
         //******************* Controllers *******************
-        builder.Services.AddControllers();
+        builder.Services.AddControllersWithViews();
 
 
         //******************* AntiForgery *******************
@@ -270,7 +270,7 @@ public class Program
 
         app.UseRouting();
 
-        app.UseAntiforgery();
+        //app.UseAntiforgery();
 
         app.UseAuthentication();
         app.UseAuthorization();
