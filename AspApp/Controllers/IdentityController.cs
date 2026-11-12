@@ -138,7 +138,7 @@ public class IdentityController : ControllerBase
 
     [HttpPost]
     [ValidateTurnstile]
-    [ValidateAntiForgeryToken]
+    //[ValidateAntiForgeryToken]
     public async Task<IActionResult> LoginWithGitHub([FromForm] Identity_LoginWithProvider_FormModel formModel)
     {
         var properties = new AuthenticationProperties
@@ -154,7 +154,7 @@ public class IdentityController : ControllerBase
 
     [HttpPost]
     [ValidateTurnstile]
-    [ValidateAntiForgeryToken]
+    //[ValidateAntiForgeryToken]
     public async Task<IActionResult> LoginWithGoogle([FromForm] Identity_LoginWithProvider_FormModel formModel)
     {
         var properties = new AuthenticationProperties
