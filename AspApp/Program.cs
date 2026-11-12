@@ -35,7 +35,12 @@ public class Program
         builder.Services.AddDbContext<Identity_DbContext>(options =>
         {
             options.UseNpgsql(builder.Configuration["Postgres:ConnectionString:Identity"]);
-            //options.UseOpenIddict<Guid>();
+        });
+        //******************* OpenIddict_DbContext *******************
+        builder.Services.AddDbContext<OpenIddict_DbContext>(options =>
+        {
+            options.UseNpgsql(builder.Configuration["Postgres:ConnectionString:OpenIddict"]);
+            options.UseOpenIddict<Guid>();
         });
         //******************* DataProtection_DbContext *******************
         builder.Services.AddDbContext<DataProtection_DbContext>(options =>
@@ -118,6 +123,12 @@ public class Program
         X509Certificate2 oidcClientEncryptionCert = await certManager.GetRsaKeyEncryptionCert();
         //******************* OpenIddict *******************
         builder.Services.AddOpenIddict()
+        .AddCore(options =>
+        {
+            options.UseEntityFrameworkCore()
+            .UseDbContext<OpenIddict_DbContext>()
+            .ReplaceDefaultEntities<Guid>();
+        })
         .AddClient(options =>//must not be defined as async
         {
             // Note: this sample uses the code flow, but you can enable the other flows if necessary.
@@ -280,6 +291,10 @@ public class Program
             // ***** dataProtectionDb *****
             var dataProtectionDb = scope.ServiceProvider.GetRequiredService<DataProtection_DbContext>();
             await dataProtectionDb.Database.MigrateAsync();
+
+            // ***** openIddictDb *****
+            var openIddictDb = scope.ServiceProvider.GetRequiredService<OpenIddict_DbContext>();
+            await openIddictDb.Database.MigrateAsync();
 
             // ***** libraryDb *****
             var libraryDb = scope.ServiceProvider.GetRequiredService<Library_DbContext>();

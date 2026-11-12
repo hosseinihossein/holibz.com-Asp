@@ -21,8 +21,10 @@
     </PackageReference>
     <PackageReference Include="MongoDB.Driver" Version="3.13.0" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
-    <PackageReference Include="OpenIddict.Client.AspNetCore" Version="7.7.2" />
-    <PackageReference Include="OpenIddict.Client.WebIntegration" Version="7.7.2" />
+    <PackageReference Include="OpenIddict.Client.AspNetCore" Version="7.8.0" />
+    <PackageReference Include="OpenIddict.Client.WebIntegration" Version="7.8.0" />
+    <PackageReference Include="OpenIddict.Core" Version="7.8.0" />
+    <PackageReference Include="OpenIddict.EntityFrameworkCore" Version="7.8.0" />
   </ItemGroup>
 
 </Project>
