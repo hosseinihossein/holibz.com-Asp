@@ -15,7 +15,14 @@ public class UsernameGenerator
 
     public string GetUniqueInMilliSeconds(string? hint = null)
     {
-        hint = hint?.Substring(0, 30) ?? "User_";
+        if (hint is null)
+        {
+            hint = "User_";
+        }
+        else if (hint.Length > 30)
+        {
+            hint = hint.Substring(0, 30);
+        }
         // 1. Get the 13-digit millisecond timestamp
         long milliseconds = (long)(DateTime.UtcNow - CustomEpoch).TotalMilliseconds;
 
