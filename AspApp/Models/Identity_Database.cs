@@ -30,10 +30,10 @@ public static class IdentityDb_Initializer
 {
     public static async Task StartInitializing(
         Identity_DbContext identityDb,
-        DataProtection_DbContext dataProtectionDb,
         UserManager<IdentityUser<Guid>> userManager,
         RoleManager<IdentityRole<Guid>> roleManager,
-        IConfiguration configuration
+        IConfiguration configuration,
+        UserProfileManager userProfileManager
     )
     {
         string adminEmail = configuration["Identity:AdminEmail"]!;
@@ -42,7 +42,6 @@ public static class IdentityDb_Initializer
         string adminRoleName = configuration["Identity:AdminRoleName"]!;
 
         await identityDb.Database.MigrateAsync();
-        await dataProtectionDb.Database.MigrateAsync();
 
         //***** Create "admin" Identity *****
         IdentityUser<Guid>? admin = await userManager.FindByNameAsync("admin");
@@ -67,11 +66,11 @@ public static class IdentityDb_Initializer
             }
 
             // send new user to user account manager
-            /*NewUserProfileModel newUserAccountModel = new()
+            NewUserProfileModel newUserAccountModel = new()
             {
                 Id = admin.Id,
             };
-            await _userProfileManager.SubmitNewUserAccount(newUserAccountModel);*/
+            await userProfileManager.SubmitNewUserAccount(newUserAccountModel);
         }
 
         //***** Seed Roles *****

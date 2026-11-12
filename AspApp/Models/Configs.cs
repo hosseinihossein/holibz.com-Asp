@@ -46,8 +46,8 @@ public class MongoDbConfigs
 public class StorageConfigs
 {
     public DirectoryInfo StorageDirInfo { get; }
-    public DirectoryInfo UserProfileDirInfo { get; }
-    public DirectoryInfo UserProfileAvatarDirInfo { get; }
+    public DirectoryInfo UserAvatarDirInfo { get; }
+    public DirectoryInfo LibraryImageDirInfo { get; }
 
     public StorageConfigs(IWebHostEnvironment env)
     {
@@ -55,14 +55,14 @@ public class StorageConfigs
         {
             // Build the absolute paths sequentially
             string storagePath = Path.Combine(env.ContentRootPath, "Storage");
-            string userProfilePath = Path.Combine(storagePath, "UserProfile");
-            string avatarPath = Path.Combine(userProfilePath, "Avatar");
+            string userAvatarPath = Path.Combine(storagePath, "UserAvatar");
+            string libImagePath = Path.Combine(storagePath, "LibraryImage");
 
             // 1. Create and set permissions step-by-step
             // 2. Keep a reference to the target directory info
             StorageDirInfo = EnsureSecureDirectory(storagePath);
-            UserProfileDirInfo = EnsureSecureDirectory(userProfilePath);
-            UserProfileAvatarDirInfo = EnsureSecureDirectory(avatarPath);
+            UserAvatarDirInfo = EnsureSecureDirectory(userAvatarPath);
+            LibraryImageDirInfo = EnsureSecureDirectory(libImagePath);
         }
         catch// (Exception ex)
         {

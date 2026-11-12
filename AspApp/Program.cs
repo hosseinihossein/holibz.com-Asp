@@ -42,6 +42,11 @@ public class Program
         {
             options.UseNpgsql(builder.Configuration["Postgres:ConnectionString:DataProtection"]);
         });
+        //******************* Library_DbContext *******************
+        builder.Services.AddDbContext<Library_DbContext>(options =>
+        {
+            options.UseNpgsql(builder.Configuration["Postgres:ConnectionString:Library"]);
+        });
 
 
         //******************* Identity service *******************
@@ -265,11 +270,20 @@ public class Program
         // ********** Initialize IdentityDb **********
         await using (var scope = app.Services.CreateAsyncScope())
         {
+            // ***** identityDb *****
             var identityDb = scope.ServiceProvider.GetRequiredService<Identity_DbContext>();
-            var dataProtectionDb = scope.ServiceProvider.GetRequiredService<DataProtection_DbContext>();
             var userManager = scope.ServiceProvider.GetRequiredService<UserManager<IdentityUser<Guid>>>();
             var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole<Guid>>>();
-            await IdentityDb_Initializer.StartInitializing(identityDb, dataProtectionDb, userManager, roleManager, app.Configuration);
+            var userProfileManager = scope.ServiceProvider.GetRequiredService<UserProfileManager>();
+            await IdentityDb_Initializer.StartInitializing(identityDb, userManager, roleManager, app.Configuration, userProfileManager);
+
+            // ***** dataProtectionDb *****
+            var dataProtectionDb = scope.ServiceProvider.GetRequiredService<DataProtection_DbContext>();
+            await dataProtectionDb.Database.MigrateAsync();
+
+            // ***** libraryDb *****
+            var libraryDb = scope.ServiceProvider.GetRequiredService<Library_DbContext>();
+            await libraryDb.Database.MigrateAsync();
         }
 
 

@@ -1,9 +1,13 @@
 using System.ComponentModel.DataAnnotations;
+using System.Security.Claims;
 using AspApp.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using MongoDB.Bson;
 using MongoDB.Bson.IO;
 using MongoDB.Driver;
+using OpenIddict.Abstractions;
 
 namespace AspApp.Controllers;
 
@@ -13,13 +17,15 @@ public class LibraryController : ControllerBase
 {
     readonly ILogger<LibraryController> _logger;
     readonly IMongoCollection<BsonDocument> _mongoCollection;
+    readonly Library_DbContext _libDb;
     readonly StorageConfigs _storageConfigs;
 
     public LibraryController(
         ILogger<LibraryController> logger,
         StorageConfigs storageConfigs,
         IMongoClient mongoClient,
-        MongoDbConfigs mongoDbConfigs
+        MongoDbConfigs mongoDbConfigs,
+        Library_DbContext libDb
     )
     {
         _logger = logger;
@@ -28,6 +34,8 @@ public class LibraryController : ControllerBase
         _mongoCollection = libraryDb.GetCollection<BsonDocument>(mongoDbConfigs.LibraryCollection);
 
         _storageConfigs = storageConfigs;
+
+        _libDb = libDb;
     }
 
 
@@ -87,6 +95,100 @@ public class LibraryController : ControllerBase
         }
 
         return Content(BsonToJson(bsonDoc), "application/json");
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> GetLibraryIds([FromQuery][StringLength(36)] string userId)
+    {
+        if (!Guid.TryParseExact(userId, "D", out Guid userGuid))
+        {
+            ModelState.AddModelError("User", "Couldn't parse the user id!");
+            return BadRequest(ModelState);
+        }
+
+        Guid[] libIds = await _libDb.Users.Where(u => u.Id == userGuid)
+        .SelectMany(u => u.Libraries)
+        .Select(l => l.Id)
+        .ToArrayAsync();
+
+        return Ok(new { libIds });
+    }
+
+    [HttpPost]
+    [Authorize]
+    [ValidateAntiForgeryToken]
+    [RequestSizeLimit(256 * 1024)]//120 KB for image and some extra for other data like title, description ...
+    public async Task<IActionResult> SubmitNewLibrary([FromForm] Library_NewLibrary_FormModel formModel)
+    {
+        if (!Guid.TryParseExact(User.GetClaim(ClaimTypes.NameIdentifier), "D", out Guid userGuid))
+        {
+            ModelState.AddModelError("User", "Couldn't parse the user id!");
+            return BadRequest(ModelState);
+        }
+        var user = await _libDb.Users.FirstOrDefaultAsync(u => u.Id == userGuid);
+        if (user is null)
+        {
+            ModelState.AddModelError("User", "Couldn't find the user!");
+            return BadRequest(ModelState);
+        }
+
+        Library_Library_DbModel newLib = new()
+        {
+            Owner = user,
+        };
+
+        await _libDb.Libraries.AddAsync(newLib);
+
+        var bsonDoc = new BsonDocument()
+        {
+            { "_id", new BsonBinaryData(newLib.Id, GuidRepresentation.Standard) },
+            { "ownerId", new BsonBinaryData(userGuid, GuidRepresentation.Standard) },
+            { "title", new BsonString(formModel.Title) },
+            { "createdAt", new BsonDateTime(DateTime.UtcNow) },
+        };
+        if (!string.IsNullOrWhiteSpace(formModel.Description))
+        {
+            bsonDoc.Add("description", new BsonString(formModel.Description));
+        }
+
+        if (formModel.Image is not null)
+        {
+            string imageName = Guid.NewGuid().ToString("D");
+            string imageFileFullPath = Path.Combine(_storageConfigs.LibraryImageDirInfo.FullName, imageName);
+            using (FileStream fs = System.IO.File.Create(imageFileFullPath))
+            {
+                await formModel.Image.CopyToAsync(fs);
+            }
+
+            // 3. Force 644 permissions (-rw-r--r--) so Nginx can read it securely
+            if (!OperatingSystem.IsWindows())
+            {
+                try
+                {
+                    System.IO.File.SetUnixFileMode(imageFileFullPath,
+                        UnixFileMode.UserRead | UnixFileMode.UserWrite | // Owner can Read/Write
+                        UnixFileMode.GroupRead |                         // Group can Read
+                        UnixFileMode.OtherRead                           // Nginx (Others) can Read
+                    );
+                }
+                catch (Exception e)
+                {
+                    _logger.LogWarning("Failed setting Linux permissions for path {Path}: {Message}", imageFileFullPath, e.Message);
+                }
+            }
+
+            string imageLinkPath = Path.Combine(
+                "/" +
+                _storageConfigs.StorageDirInfo.Name,
+                _storageConfigs.LibraryImageDirInfo.Name,
+                imageName
+            );
+            bsonDoc.Add("imageUrl", new BsonString(imageLinkPath));
+        }
+
+        await _mongoCollection.InsertOneAsync(bsonDoc);
+
+        return Ok(new { success = true });
     }
 
 }

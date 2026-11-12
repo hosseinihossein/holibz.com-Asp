@@ -142,9 +142,9 @@ public class UserProfileController : ControllerBase
             return BadRequest(ModelState);
         }
 
-        string avatarId = Guid.NewGuid().ToString("D");
-        string avatarFilePath = Path.Combine(_storageConfigs.UserProfileAvatarDirInfo.FullName, avatarId);
-        using (FileStream fs = System.IO.File.Create(avatarFilePath))
+        string avatarName = Guid.NewGuid().ToString("D");
+        string avatarFileFullPath = Path.Combine(_storageConfigs.UserAvatarDirInfo.FullName, avatarName);
+        using (FileStream fs = System.IO.File.Create(avatarFileFullPath))
         {
             await formModel.UserImageFile.CopyToAsync(fs);
         }
@@ -154,7 +154,7 @@ public class UserProfileController : ControllerBase
         {
             try
             {
-                System.IO.File.SetUnixFileMode(avatarFilePath,
+                System.IO.File.SetUnixFileMode(avatarFileFullPath,
                     UnixFileMode.UserRead | UnixFileMode.UserWrite | // Owner can Read/Write
                     UnixFileMode.GroupRead |                         // Group can Read
                     UnixFileMode.OtherRead                           // Nginx (Others) can Read
@@ -162,7 +162,7 @@ public class UserProfileController : ControllerBase
             }
             catch (Exception e)
             {
-                _logger.LogWarning("Failed setting Linux permissions for path {Path}: {Message}", avatarFilePath, e.Message);
+                _logger.LogWarning("Failed setting Linux permissions for path {Path}: {Message}", avatarFileFullPath, e.Message);
             }
         }
 
@@ -180,7 +180,13 @@ public class UserProfileController : ControllerBase
         var filter = Builders<BsonDocument>.Filter
         .Eq("_id", new BsonBinaryData(userGuid, GuidRepresentation.Standard));
 
-        var update = Builders<BsonDocument>.Update.Set("avatarId", new BsonString(avatarId));
+        string avatarLinkPath = Path.Combine(
+            "/" +
+            _storageConfigs.StorageDirInfo.Name,
+            _storageConfigs.UserAvatarDirInfo.Name,
+            avatarName
+        );
+        var update = Builders<BsonDocument>.Update.Set("avatarId", new BsonString(avatarLinkPath));
         await _mongoCollection.UpdateOneAsync(filter, update);
 
         return Ok(new { success = true });
@@ -192,7 +198,7 @@ public class UserProfileController : ControllerBase
 
     private void DeleteAvatarFile(string avatarId)
     {
-        string avatarFilePath = Path.Combine(_storageConfigs.UserProfileAvatarDirInfo.FullName, avatarId);
+        string avatarFilePath = Path.Combine(_storageConfigs.UserAvatarDirInfo.FullName, avatarId);
 
         if (System.IO.File.Exists(avatarFilePath))
         {
