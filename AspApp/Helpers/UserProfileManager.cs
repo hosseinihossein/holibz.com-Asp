@@ -50,7 +50,7 @@ public class UserProfileManager
         string json = bsonDoc.ToJson(
             new JsonWriterSettings()
             {
-                OutputMode = JsonOutputMode.RelaxedExtendedJson,
+                OutputMode = JsonOutputMode.CanonicalExtendedJson,
             }
         );
 
