@@ -59,8 +59,7 @@ public class UserProfileController : ControllerBase
         }
 
         //return Content(_profileManager.BsonToJson(bsonDoc), "application/json");
-        var json = BsonSerializer.Deserialize<object>(bsonDoc);
-        return Ok(json);
+        return Ok(_profileManager.BsonToJson(bsonDoc));
     }
 
     [HttpGet]

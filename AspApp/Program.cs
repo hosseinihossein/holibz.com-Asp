@@ -351,7 +351,7 @@ public class Program
 
             IFindFluent<BsonDocument, BsonDocument> findFluent = mongoCollection.Find(Builders<BsonDocument>.Filter.Empty);
             var userListBson = await findFluent.ToListAsync();
-            List<string> userListJson = [];
+            List<Dictionary<string, object?>> userListJson = [];
             foreach (var ub in userListBson)
             {
                 userListJson.Add(profileManager.BsonToJson(ub));

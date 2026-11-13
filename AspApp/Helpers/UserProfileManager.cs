@@ -45,16 +45,64 @@ public class UserProfileManager
         return await findFluent.FirstOrDefaultAsync();
     }
 
-    public string BsonToJson(BsonDocument bsonDoc)
+    public Dictionary<string, object?> BsonToJson(BsonDocument bsonDoc)
     {
-        string json = bsonDoc.ToJson(
+        /*string json = bsonDoc.ToJson(
             new JsonWriterSettings()
             {
                 OutputMode = JsonOutputMode.Shell,
             }
         );
 
-        return json;
+        return json;*/
+        Dictionary<string, object?> dictionary = [];
+
+        foreach (var bsonElement in bsonDoc)
+        {
+            dictionary.Add(bsonElement.Name, BsonValueToSimpleTypes(bsonElement.Value));
+        }
+
+        return dictionary;
+    }
+    private object? BsonValueToSimpleTypes(BsonValue bsonValue)
+    {
+        if (bsonValue.IsBoolean)
+        {
+            return bsonValue.AsBoolean;
+        }
+        else if (bsonValue.IsGuid)
+        {
+            return bsonValue.AsGuid;
+        }
+        else if (bsonValue.IsBsonDateTime)
+        {
+            return bsonValue.ToUniversalTime();
+        }
+        else if (bsonValue.IsBsonDocument)
+        {
+            return BsonValueToSimpleTypes(bsonValue);
+        }
+        else if (bsonValue.IsBsonNull)
+        {
+            return null;
+        }
+        else if (bsonValue.IsDouble)
+        {
+            return bsonValue.AsDouble;
+        }
+        else if (bsonValue.IsInt32)
+        {
+            return bsonValue.AsInt32;
+        }
+        else if (bsonValue.IsObjectId)
+        {
+            return bsonValue.ToString();
+        }
+        else if (bsonValue.IsString)
+        {
+            return bsonValue.ToString();
+        }
+        return new { };
     }
 
     public async Task CreateNewUserProfile(NewUserProfileModel model)
