@@ -261,8 +261,8 @@ public class Program
 
         //******************* Main Configs *******************
         builder.Services.AddSingleton<MainConfigs>((sp) => new MainConfigs(builder.Configuration["MainDomainName"] ?? "https://holibz.com"));
-        //******************* Storage Configs *******************
-        builder.Services.AddSingleton<StorageConfigs>(sp => new StorageConfigs(builder.Environment));
+        //******************* Storage Manager *******************
+        builder.Services.AddSingleton<StorageManager>();
         //******************* User Profile Manager *******************
         builder.Services.AddSingleton<UserProfileManager>();
         //******************* Library Manager *******************

@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.Security.Claims;
+using AspApp.Helpers;
 using AspApp.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -18,11 +19,11 @@ public class LibraryController : ControllerBase
     readonly ILogger<LibraryController> _logger;
     readonly IMongoCollection<BsonDocument> _mongoCollection;
     readonly Library_DbContext _libDb;
-    readonly StorageConfigs _storageConfigs;
+    readonly StorageManager _storageManager;
 
     public LibraryController(
         ILogger<LibraryController> logger,
-        StorageConfigs storageConfigs,
+        StorageManager storageManager,
         IMongoClient mongoClient,
         MongoDbConfigs mongoDbConfigs,
         Library_DbContext libDb
@@ -33,7 +34,7 @@ public class LibraryController : ControllerBase
         IMongoDatabase libraryDb = mongoClient.GetDatabase(mongoDbConfigs.LibraryDb);
         _mongoCollection = libraryDb.GetCollection<BsonDocument>(mongoDbConfigs.LibraryCollection);
 
-        _storageConfigs = storageConfigs;
+        _storageManager = storageManager;
 
         _libDb = libDb;
     }
@@ -155,14 +156,14 @@ public class LibraryController : ControllerBase
         if (formModel.Image is not null)
         {
             string imageName = Guid.NewGuid().ToString("D");
-            string imageFileFullPath = Path.Combine(_storageConfigs.LibraryImageDirInfo.FullName, imageName);
+            string imageFileFullPath = Path.Combine(_storageManager.LibraryImageDirInfo.FullName, imageName);
             using (FileStream fs = System.IO.File.Create(imageFileFullPath))
             {
                 await formModel.Image.CopyToAsync(fs);
             }
 
             // 3. Force 644 permissions (-rw-r--r--) so Nginx can read it securely
-            if (!OperatingSystem.IsWindows())
+            /*if (!OperatingSystem.IsWindows())
             {
                 try
                 {
@@ -176,12 +177,12 @@ public class LibraryController : ControllerBase
                 {
                     _logger.LogWarning("Failed setting Linux permissions for path {Path}: {Message}", imageFileFullPath, e.Message);
                 }
-            }
+            }*/
 
             string imageLinkPath = Path.Combine(
                 "/" +
-                _storageConfigs.StorageDirInfo.Name,
-                _storageConfigs.LibraryImageDirInfo.Name,
+                _storageManager.StorageDirInfo.Name,
+                _storageManager.LibraryImageDirInfo.Name,
                 imageName
             );
             bsonDoc.Add("imageUrl", new BsonString(imageLinkPath));

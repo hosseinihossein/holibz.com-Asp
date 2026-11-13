@@ -43,7 +43,7 @@ public class MongoDbConfigs
     }
 }
 
-public class StorageConfigs
+/*public class StorageConfigs
 {
     public DirectoryInfo StorageDirInfo { get; }
     public DirectoryInfo UserAvatarDirInfo { get; }
@@ -95,4 +95,4 @@ public class StorageConfigs
 
         return dirInfo;
     }
-}
+}*/

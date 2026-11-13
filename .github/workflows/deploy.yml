@@ -58,7 +58,6 @@ jobs:
             docker run -d \
               --name aspapp \
               --network=my-bridge \
-              --user root \
               -v user-avatar:/MyAspApp/Storage/UserAvatar \
               -v library-image:/MyAspApp/Storage/LibraryImage \
               aspapp:1.0

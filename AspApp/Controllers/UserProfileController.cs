@@ -17,14 +17,14 @@ public class UserProfileController : ControllerBase
 {
     readonly ILogger<UserProfileController> _logger;
     readonly IMongoCollection<BsonDocument> _mongoCollection;
-    readonly StorageConfigs _storageConfigs;
+    readonly StorageManager _storageManager;
     readonly UserProfileManager _profileManager;
 
     public UserProfileController(
         ILogger<UserProfileController> logger,
         IMongoClient mongoClient,
         MongoDbConfigs mongoDbConfigs,
-        StorageConfigs storageConfigs,
+        StorageManager storageManager,
         UserProfileManager profileManager
     )
     {
@@ -33,7 +33,7 @@ public class UserProfileController : ControllerBase
         IMongoDatabase userAccountDb = mongoClient.GetDatabase(mongoDbConfigs.UserAccountDb);
         _mongoCollection = userAccountDb.GetCollection<BsonDocument>(mongoDbConfigs.ProfileCollection);
 
-        _storageConfigs = storageConfigs;
+        _storageManager = storageManager;
 
         _profileManager = profileManager;
     }
@@ -109,14 +109,14 @@ public class UserProfileController : ControllerBase
         }
 
         string avatarName = Guid.NewGuid().ToString("D");
-        string avatarFileFullPath = Path.Combine(_storageConfigs.UserAvatarDirInfo.FullName, avatarName);
+        string avatarFileFullPath = Path.Combine(_storageManager.UserAvatarDirInfo.FullName, avatarName);
         using (FileStream fs = System.IO.File.Create(avatarFileFullPath))
         {
             await formModel.UserImageFile.CopyToAsync(fs);
         }
 
         // 3. Force 644 permissions (-rw-r--r--) so Nginx can read it securely
-        if (!OperatingSystem.IsWindows())
+        /*if (!OperatingSystem.IsWindows())
         {
             try
             {
@@ -130,7 +130,7 @@ public class UserProfileController : ControllerBase
             {
                 _logger.LogWarning("Failed setting Linux permissions for path {Path}: {Message}", avatarFileFullPath, e.Message);
             }
-        }
+        }*/
 
         //delete the old avatar file
         if (bsonDoc.TryGetValue("avatarId", out BsonValue bsonValue) && bsonValue.IsString)
@@ -148,8 +148,8 @@ public class UserProfileController : ControllerBase
 
         string avatarLinkPath = Path.Combine(
             "/" +
-            _storageConfigs.StorageDirInfo.Name,
-            _storageConfigs.UserAvatarDirInfo.Name,
+            _storageManager.StorageDirInfo.Name,
+            _storageManager.UserAvatarDirInfo.Name,
             avatarName
         );
         var update = Builders<BsonDocument>.Update.Set("avatarId", new BsonString(avatarLinkPath));
@@ -164,7 +164,7 @@ public class UserProfileController : ControllerBase
 
     private void DeleteAvatarFile(string avatarId)
     {
-        string avatarFilePath = Path.Combine(_storageConfigs.UserAvatarDirInfo.FullName, avatarId);
+        string avatarFilePath = Path.Combine(_storageManager.UserAvatarDirInfo.FullName, avatarId);
 
         if (System.IO.File.Exists(avatarFilePath))
         {
