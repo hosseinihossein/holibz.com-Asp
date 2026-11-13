@@ -72,7 +72,7 @@ public class LibraryController : ControllerBase
         string json = bsonDoc.ToJson(
             new JsonWriterSettings()
             {
-                OutputMode = JsonOutputMode.CanonicalExtendedJson,
+                OutputMode = JsonOutputMode.Shell,
             }
         );
 
