@@ -108,7 +108,7 @@ public class UserProfileController : ControllerBase
             return BadRequest(ModelState);
         }
 
-        string avatarName = Guid.NewGuid().ToString("D");
+        string avatarName = Guid.NewGuid().ToString("D") + ".webp";
         string avatarFileFullPath = Path.Combine(_storageManager.UserAvatarDirInfo.FullName, avatarName);
         using (FileStream fs = System.IO.File.Create(avatarFileFullPath))
         {

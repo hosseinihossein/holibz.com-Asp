@@ -155,7 +155,7 @@ public class LibraryController : ControllerBase
 
         if (formModel.Image is not null)
         {
-            string imageName = Guid.NewGuid().ToString("D");
+            string imageName = Guid.NewGuid().ToString("D") + ".webp";
             string imageFileFullPath = Path.Combine(_storageManager.LibraryImageDirInfo.FullName, imageName);
             using (FileStream fs = System.IO.File.Create(imageFileFullPath))
             {
