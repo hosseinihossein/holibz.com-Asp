@@ -360,24 +360,6 @@ public class Program
             return new { profileUsers = userListJson.ToArray() };
         });
 
-        app.MapGet("/api/DeleteUserByEmail/{email}",
-        async (
-            string email,
-            UserManager<IdentityUser<Guid>> userManager,
-            UserProfileManager profileManager,
-            LibraryManager libManager
-        ) =>
-        {
-            var user = await userManager.FindByEmailAsync(email);
-            if (user is not null)
-            {
-                await userManager.DeleteAsync(user);
-                await profileManager.DeleteUserProfile(user.Id);
-                await libManager.DeleteUser(user.Id);
-                return new { success = true };
-            }
-            return new { success = false };
-        });
         app.MapGet("/api/DeleteUserByUsername/{username}",
         async (
             string username,
@@ -395,6 +377,22 @@ public class Program
                 return new { success = true };
             }
             return new { success = false };
+        });
+
+        app.MapGet("/api/DeleteAllLibrariesFromMongo",
+        async (
+            //LibraryManager libManager,
+            IMongoClient mongoClient,
+            MongoDbConfigs mongoDbConfigs,
+            UserProfileManager profileManager
+        ) =>
+        {
+            IMongoDatabase userAccountDb = mongoClient.GetDatabase(mongoDbConfigs.UserAccountDb);
+            IMongoCollection<BsonDocument> mongoCollection = userAccountDb.GetCollection<BsonDocument>(mongoDbConfigs.ProfileCollection);
+
+            await mongoCollection.DeleteManyAsync(Builders<BsonDocument>.Filter.Empty);
+
+            return new { success = true };
         });
 
 

@@ -138,6 +138,7 @@ public class LibraryController : ControllerBase
         };
 
         await _libDb.Libraries.AddAsync(newLib);
+        await _libDb.SaveChangesAsync();
 
         var bsonDoc = new BsonDocument()
         {
