@@ -1,4 +1,5 @@
 using AspApp.Models;
+using Microsoft.EntityFrameworkCore;
 
 namespace AspApp.Helpers;
 
@@ -17,6 +18,16 @@ public class LibraryManager
             Id = userId,
         };
         await _libDb.Users.AddAsync(libUser);
+    }
+
+    public async Task DeleteUser(Guid userId)
+    {
+        var user = await _libDb.Users.FirstOrDefaultAsync(u => u.Id == userId);
+        if (user is null)
+        {
+            return;
+        }
+        _libDb.Users.Remove(user);
     }
 }
 

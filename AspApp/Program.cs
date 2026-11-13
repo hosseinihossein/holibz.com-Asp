@@ -4,12 +4,14 @@ using System.Security.Cryptography.X509Certificates;
 using AspApp.Helpers;
 using AspApp.Models;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
+using MongoDB.Bson;
 using MongoDB.Driver;
 using OpenIddict.Client;
 using OpenIddict.Client.AspNetCore;
@@ -308,6 +310,74 @@ public class Program
 
         app.MapControllers();
         app.MapDefaultControllerRoute();
+
+
+        app.MapGet("GetIdentityUsers", async (UserManager<IdentityUser<Guid>> userManager) =>
+        {
+            var users = await userManager.Users
+            .Select(u => new
+            {
+                u.Id,
+                u.Email,
+                u.EmailConfirmed,
+                u.UserName
+            })
+            .ToArrayAsync();
+
+            return new { identityUsers = users };
+        });
+
+        app.MapGet("GetLibraryUsers", async (Library_DbContext libDb) =>
+        {
+            var users = await libDb.Users
+            .Select(u => new
+            {
+                u.Id,
+            })
+            .ToArrayAsync();
+
+            return new { libraryUsers = users };
+        });
+
+        app.MapGet("GetProfileUsers",
+        async (
+            IMongoClient mongoClient,
+            MongoDbConfigs mongoDbConfigs,
+            UserProfileManager profileManager
+        ) =>
+        {
+            IMongoDatabase userAccountDb = mongoClient.GetDatabase(mongoDbConfigs.UserAccountDb);
+            IMongoCollection<BsonDocument> mongoCollection = userAccountDb.GetCollection<BsonDocument>(mongoDbConfigs.ProfileCollection);
+
+            IFindFluent<BsonDocument, BsonDocument> findFluent = mongoCollection.Find(Builders<BsonDocument>.Filter.Empty);
+            var userListBson = await findFluent.ToListAsync();
+            List<string> userListJson = [];
+            foreach (var ub in userListBson)
+            {
+                userListJson.Add(profileManager.BsonToJson(ub));
+            }
+
+            return new { profileUsers = userListJson.ToArray() };
+        });
+
+        app.MapGet("/DeleteUserByEmail/{email}",
+        async (
+            string email,
+            UserManager<IdentityUser<Guid>> userManager,
+            UserProfileManager profileManager,
+            LibraryManager libManager,
+            HttpContext httpContext
+        ) =>
+        {
+            var user = await userManager.FindByEmailAsync(email);
+            if (user is not null)
+            {
+                await userManager.DeleteAsync(user);
+                await profileManager.DeleteUserProfile(user.Id);
+                await libManager.DeleteUser(user.Id);
+            }
+            return new { success = true };
+        });
 
 
         //******************* app.Run ******************

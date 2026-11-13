@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.Security.Claims;
+using AspApp.Helpers;
 using AspApp.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -17,12 +18,14 @@ public class UserProfileController : ControllerBase
     readonly ILogger<UserProfileController> _logger;
     readonly IMongoCollection<BsonDocument> _mongoCollection;
     readonly StorageConfigs _storageConfigs;
+    readonly UserProfileManager _profileManager;
 
     public UserProfileController(
         ILogger<UserProfileController> logger,
         IMongoClient mongoClient,
         MongoDbConfigs mongoDbConfigs,
-        StorageConfigs storageConfigs
+        StorageConfigs storageConfigs,
+        UserProfileManager profileManager
     )
     {
         _logger = logger;
@@ -31,48 +34,11 @@ public class UserProfileController : ControllerBase
         _mongoCollection = userAccountDb.GetCollection<BsonDocument>(mongoDbConfigs.ProfileCollection);
 
         _storageConfigs = storageConfigs;
+
+        _profileManager = profileManager;
     }
 
 
-    // ********** Model **********
-    private async Task<BsonDocument?> GetModelBson(Guid userGuid, string[]? projectItems = null)
-    {
-        var filter = Builders<BsonDocument>.Filter
-        .Eq("_id", new BsonBinaryData(userGuid, GuidRepresentation.Standard));
-
-        IFindFluent<BsonDocument, BsonDocument> findFluent = _mongoCollection.Find(filter);
-
-        if (projectItems is not null && projectItems.Length > 0)
-        {
-            ProjectionDefinition<BsonDocument>? projection = null;
-            foreach (string item in projectItems)
-            {
-                if (!string.IsNullOrWhiteSpace(item))
-                {
-                    projection = Builders<BsonDocument>.Projection.Include(item);
-                }
-            }
-
-            if (projection is not null)
-            {
-                findFluent = findFluent.Project<BsonDocument>(projection);
-            }
-        }
-
-        return await findFluent.FirstOrDefaultAsync();
-    }
-
-    private string BsonToJson(BsonDocument bsonDoc)
-    {
-        string json = bsonDoc.ToJson(
-            new JsonWriterSettings()
-            {
-                OutputMode = JsonOutputMode.RelaxedExtendedJson,
-            }
-        );
-
-        return json;
-    }
 
     [HttpGet]
     public async Task<IActionResult> GetProfileInfo([FromQuery][StringLength(36)] string userId)
@@ -83,14 +49,14 @@ public class UserProfileController : ControllerBase
             return BadRequest(ModelState);
         }
 
-        BsonDocument? bsonDoc = await GetModelBson(userGuid);
+        BsonDocument? bsonDoc = await _profileManager.GetFirstBsonDoc(userGuid);
 
         if (bsonDoc is null)
         {
             return NotFound(new { message = "User not found!" });
         }
 
-        return Content(BsonToJson(bsonDoc), "application/json");
+        return Content(_profileManager.BsonToJson(bsonDoc), "application/json");
     }
 
     [HttpGet]
@@ -102,7 +68,7 @@ public class UserProfileController : ControllerBase
             return BadRequest(ModelState);
         }
 
-        BsonDocument? bsonDoc = await GetModelBson(userGuid, ["avatarId"]);
+        BsonDocument? bsonDoc = await _profileManager.GetFirstBsonDoc(userGuid, ["avatarId"]);
         if (bsonDoc is null)
         {
             ModelState.AddModelError("User", "User Profile not found!");
@@ -135,7 +101,7 @@ public class UserProfileController : ControllerBase
             return BadRequest(ModelState);
         }
 
-        BsonDocument? bsonDoc = await GetModelBson(userGuid, ["avatarId"]);
+        BsonDocument? bsonDoc = await _profileManager.GetFirstBsonDoc(userGuid, ["avatarId"]);
         if (bsonDoc is null)
         {
             ModelState.AddModelError("User", "User Profile not found!");
@@ -217,7 +183,7 @@ public class UserProfileController : ControllerBase
             return BadRequest(ModelState);
         }
 
-        BsonDocument? bsonDoc = await GetModelBson(userGuid, ["avatarId"]);
+        BsonDocument? bsonDoc = await _profileManager.GetFirstBsonDoc(userGuid, ["avatarId"]);
         if (bsonDoc is null)
         {
             ModelState.AddModelError("User", "User Profile not found!");

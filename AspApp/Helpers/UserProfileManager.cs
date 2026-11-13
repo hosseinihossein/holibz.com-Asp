@@ -1,6 +1,7 @@
 using AspApp.Models;
 using Microsoft.Extensions.Options;
 using MongoDB.Bson;
+using MongoDB.Bson.IO;
 using MongoDB.Driver;
 
 namespace AspApp.Helpers;
@@ -17,6 +18,45 @@ public class UserProfileManager
         _mongoCollection = userAccountDb.GetCollection<BsonDocument>(mongoDbConfigs.ProfileCollection);
     }
 
+    public async Task<BsonDocument?> GetFirstBsonDoc(Guid userGuid, string[]? projectItems = null)
+    {
+        var filter = Builders<BsonDocument>.Filter
+        .Eq("_id", new BsonBinaryData(userGuid, GuidRepresentation.Standard));
+
+        IFindFluent<BsonDocument, BsonDocument> findFluent = _mongoCollection.Find(filter);
+
+        if (projectItems is not null && projectItems.Length > 0)
+        {
+            ProjectionDefinition<BsonDocument>? projection = null;
+            foreach (string item in projectItems)
+            {
+                if (!string.IsNullOrWhiteSpace(item))
+                {
+                    projection = Builders<BsonDocument>.Projection.Include(item);
+                }
+            }
+
+            if (projection is not null)
+            {
+                findFluent = findFluent.Project<BsonDocument>(projection);
+            }
+        }
+
+        return await findFluent.FirstOrDefaultAsync();
+    }
+
+    public string BsonToJson(BsonDocument bsonDoc)
+    {
+        string json = bsonDoc.ToJson(
+            new JsonWriterSettings()
+            {
+                OutputMode = JsonOutputMode.RelaxedExtendedJson,
+            }
+        );
+
+        return json;
+    }
+
     public async Task CreateNewUserProfile(NewUserProfileModel model)
     {
         //create user profile document on mongodb
@@ -31,6 +71,15 @@ public class UserProfileManager
         }
         await _mongoCollection.InsertOneAsync(bsonDoc);
     }
+
+    public async Task DeleteUserProfile(Guid userId)
+    {
+        var filter = Builders<BsonDocument>.Filter
+        .Eq("_id", new BsonBinaryData(userId, GuidRepresentation.Standard));
+        await _mongoCollection.DeleteOneAsync(filter);
+    }
+
+
 
 
 }
