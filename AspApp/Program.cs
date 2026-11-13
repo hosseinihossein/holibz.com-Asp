@@ -379,9 +379,9 @@ public class Program
             return new { success = false };
         });
 
-        app.MapGet("/api/DeleteAllLibrariesFromMongo",
+        app.MapGet("/api/DeleteAllLibraries",
         async (
-            //LibraryManager libManager,
+            LibraryManager libManager,
             IMongoClient mongoClient,
             MongoDbConfigs mongoDbConfigs,
             UserProfileManager profileManager
@@ -391,6 +391,8 @@ public class Program
             IMongoCollection<BsonDocument> mongoCollection = userAccountDb.GetCollection<BsonDocument>(mongoDbConfigs.LibraryCollection);
 
             await mongoCollection.DeleteManyAsync(Builders<BsonDocument>.Filter.Empty);
+
+            await libManager.DeleteAllLibraries();
 
             return new { success = true };
         });

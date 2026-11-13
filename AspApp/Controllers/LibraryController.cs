@@ -162,23 +162,6 @@ public class LibraryController : ControllerBase
                 await formModel.Image.CopyToAsync(fs);
             }
 
-            // 3. Force 644 permissions (-rw-r--r--) so Nginx can read it securely
-            /*if (!OperatingSystem.IsWindows())
-            {
-                try
-                {
-                    System.IO.File.SetUnixFileMode(imageFileFullPath,
-                        UnixFileMode.UserRead | UnixFileMode.UserWrite | // Owner can Read/Write
-                        UnixFileMode.GroupRead |                         // Group can Read
-                        UnixFileMode.OtherRead                           // Nginx (Others) can Read
-                    );
-                }
-                catch (Exception e)
-                {
-                    _logger.LogWarning("Failed setting Linux permissions for path {Path}: {Message}", imageFileFullPath, e.Message);
-                }
-            }*/
-
             string imageLinkPath = Path.Combine(
                 "/" +
                 _storageManager.StorageDirInfo.Name,

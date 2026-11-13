@@ -31,5 +31,10 @@ public class LibraryManager
         _libDb.Users.Remove(user);
         await _libDb.SaveChangesAsync();
     }
+
+    public async Task DeleteAllLibraries()
+    {
+        await _libDb.Libraries.ExecuteDeleteAsync();
+    }
 }
 

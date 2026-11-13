@@ -45,6 +45,12 @@ jobs:
             # Copy appsettings.json
             cp appsettings.json MyAspApp/appsettings.json
 
+            # Create storage directories and set their permissions for named volumes
+            mkdir MyAspApp/Storage
+            mkdir MyAspApp/Storage/UserAvatar
+            mkdir MyAspApp/Storage/LibraryImage
+            chown 1654:1654 MyAspApp/Storage MyAspApp/Storage/UserAvatar MyAspApp/Storage/LibraryImage
+
             # Stop and remove aspapp if it exists (ignoring failure if it doesn't)
             docker rm -f aspapp || true
 
