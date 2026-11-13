@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MongoDB.Bson;
 using MongoDB.Bson.IO;
+using MongoDB.Bson.Serialization;
 using MongoDB.Driver;
 //using OpenIddict.Abstractions;
 
@@ -58,8 +59,8 @@ public class UserProfileController : ControllerBase
         }
 
         //return Content(_profileManager.BsonToJson(bsonDoc), "application/json");
-        var jsonNode = JsonNode.Parse(_profileManager.BsonToJson(bsonDoc));
-        return Ok(jsonNode);
+        var json = BsonSerializer.Deserialize<object>(bsonDoc);
+        return Ok(json);
     }
 
     [HttpGet]
