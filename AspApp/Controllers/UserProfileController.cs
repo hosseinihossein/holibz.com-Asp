@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.Security.Claims;
+using System.Text.Json.Nodes;
 using AspApp.Helpers;
 using AspApp.Models;
 using Microsoft.AspNetCore.Authorization;
@@ -56,7 +57,9 @@ public class UserProfileController : ControllerBase
             return NotFound(new { message = "User not found!" });
         }
 
-        return Content(_profileManager.BsonToJson(bsonDoc), "application/json");
+        //return Content(_profileManager.BsonToJson(bsonDoc), "application/json");
+        var jsonNode = JsonNode.Parse(_profileManager.BsonToJson(bsonDoc));
+        return Ok(jsonNode);
     }
 
     [HttpGet]
