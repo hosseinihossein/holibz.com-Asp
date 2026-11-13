@@ -388,7 +388,7 @@ public class Program
         ) =>
         {
             IMongoDatabase userAccountDb = mongoClient.GetDatabase(mongoDbConfigs.UserAccountDb);
-            IMongoCollection<BsonDocument> mongoCollection = userAccountDb.GetCollection<BsonDocument>(mongoDbConfigs.ProfileCollection);
+            IMongoCollection<BsonDocument> mongoCollection = userAccountDb.GetCollection<BsonDocument>(mongoDbConfigs.LibraryCollection);
 
             await mongoCollection.DeleteManyAsync(Builders<BsonDocument>.Filter.Empty);
 
