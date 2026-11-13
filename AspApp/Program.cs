@@ -374,8 +374,9 @@ public class Program
                 await userManager.DeleteAsync(user);
                 await profileManager.DeleteUserProfile(user.Id);
                 await libManager.DeleteUser(user.Id);
+                return new { success = true };
             }
-            return new { success = true };
+            return new { success = false };
         });
         app.MapGet("/api/DeleteUserByUsername/{username}",
         async (
@@ -385,14 +386,15 @@ public class Program
             LibraryManager libManager
         ) =>
         {
-            /*var user = await userManager.FindByEmailAsync(username);
+            var user = await userManager.FindByNameAsync(username);
             if (user is not null)
             {
                 await userManager.DeleteAsync(user);
                 await profileManager.DeleteUserProfile(user.Id);
                 await libManager.DeleteUser(user.Id);
-            }*/
-            return new { username };
+                return new { success = true };
+            }
+            return new { success = false };
         });
 
 
