@@ -120,7 +120,7 @@ public class LibraryController : ControllerBase
     [RequestSizeLimit(256 * 1024)]//120 KB for image and some extra for other data like title, description ...
     public async Task<IActionResult> SubmitNewLibrary([FromForm] Library_NewLibrary_FormModel formModel)
     {
-        if (!Guid.TryParseExact(User.GetClaim(ClaimTypes.NameIdentifier), "D", out Guid userGuid))
+        if (!Guid.TryParseExact(User.FindFirstValue(ClaimTypes.NameIdentifier), "D", out Guid userGuid))
         {
             ModelState.AddModelError("User", "Couldn't parse the user id!");
             return BadRequest(ModelState);
@@ -128,7 +128,7 @@ public class LibraryController : ControllerBase
         var user = await _libDb.Users.FirstOrDefaultAsync(u => u.Id == userGuid);
         if (user is null)
         {
-            ModelState.AddModelError("User", "Couldn't find the user!");
+            ModelState.AddModelError("User", $"Couldn't find the user! userId: {userGuid}");
             return BadRequest(ModelState);
         }
 
