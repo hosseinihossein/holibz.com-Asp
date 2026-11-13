@@ -365,8 +365,7 @@ public class Program
             string email,
             UserManager<IdentityUser<Guid>> userManager,
             UserProfileManager profileManager,
-            LibraryManager libManager,
-            HttpContext httpContext
+            LibraryManager libManager
         ) =>
         {
             var user = await userManager.FindByEmailAsync(email);
@@ -377,6 +376,23 @@ public class Program
                 await libManager.DeleteUser(user.Id);
             }
             return new { success = true };
+        });
+        app.MapGet("/api/DeleteUserByUsername/{username}",
+        async (
+            string username,
+            UserManager<IdentityUser<Guid>> userManager,
+            UserProfileManager profileManager,
+            LibraryManager libManager
+        ) =>
+        {
+            /*var user = await userManager.FindByEmailAsync(username);
+            if (user is not null)
+            {
+                await userManager.DeleteAsync(user);
+                await profileManager.DeleteUserProfile(user.Id);
+                await libManager.DeleteUser(user.Id);
+            }*/
+            return new { username };
         });
 
 
