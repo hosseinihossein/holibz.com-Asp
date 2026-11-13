@@ -33,7 +33,8 @@ public static class IdentityDb_Initializer
         UserManager<IdentityUser<Guid>> userManager,
         RoleManager<IdentityRole<Guid>> roleManager,
         IConfiguration configuration,
-        UserProfileManager userProfileManager
+        UserProfileManager userProfileManager,
+        LibraryManager libraryManager
     )
     {
         string adminEmail = configuration["Identity:AdminEmail"]!;
@@ -65,12 +66,15 @@ public static class IdentityDb_Initializer
                 return;
             }
 
-            // send new user to user account manager
+            // send new user to profile manager
             NewUserProfileModel newUserAccountModel = new()
             {
                 Id = admin.Id,
             };
-            await userProfileManager.SubmitNewUserAccount(newUserAccountModel);
+            await userProfileManager.CreateNewUserProfile(newUserAccountModel);
+
+            // send new user to library manager
+            await libraryManager.CreateNewUser(admin.Id);
         }
 
         //***** Seed Roles *****

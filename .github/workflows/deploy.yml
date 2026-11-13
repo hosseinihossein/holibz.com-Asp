@@ -38,9 +38,7 @@ jobs:
         run: |
           ssh ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'EOF'
             set -e # Stop execution if any command fails
-            echo "Connected securely using webfactory/ssh-agent!"
-            whoami
-            
+
             # Navigate to directory and deploy your ASP.NET Core Docker Container
             cd /opt/myApps/AspApp/
 

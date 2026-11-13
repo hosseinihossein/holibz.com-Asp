@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace AspApp.Migrations.Library_Db
 {
     [DbContext(typeof(Library_DbContext))]
-    [Migration("20261112124910_Initial")]
+    [Migration("20261113051816_Initial")]
     partial class Initial
     {
         /// <inheritdoc />
@@ -44,7 +44,6 @@ namespace AspApp.Migrations.Library_Db
             modelBuilder.Entity("AspApp.Models.Library_User_DbModel", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");

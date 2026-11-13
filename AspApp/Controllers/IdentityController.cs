@@ -37,6 +37,7 @@ public class IdentityController : ControllerBase
     private readonly MainConfigs _mainConfigs;
 
     private readonly UserProfileManager _userProfileManager;
+    readonly LibraryManager _libManager;
 
 
     public IdentityController(
@@ -47,7 +48,8 @@ public class IdentityController : ControllerBase
         IEmailSender emailSender,
         TurnstileConfigs turnstileConfigs,
         MainConfigs mainConfigs,
-        UserProfileManager userAccountManager
+        UserProfileManager userAccountManager,
+        LibraryManager libManager
     )
     {
         _signInManager = signInManager;
@@ -58,6 +60,7 @@ public class IdentityController : ControllerBase
         _turnstileEnabled = turnstileConfigs.Enabled;
         _mainConfigs = mainConfigs;
         _userProfileManager = userAccountManager;
+        _libManager = libManager;
     }
 
 
@@ -273,13 +276,16 @@ public class IdentityController : ControllerBase
                     });
                 }
 
-                // send new user to user account manager
+                // send new user to profile manager
                 NewUserProfileModel newUserAccountModel = new()
                 {
                     Id = user.Id,
                     AvatarUrl = result.Principal.GetClaim("avatar_url"),
                 };
-                await _userProfileManager.SubmitNewUserAccount(newUserAccountModel);
+                await _userProfileManager.CreateNewUserProfile(newUserAccountModel);
+
+                // send new user to library manager
+                await _libManager.CreateNewUser(user.Id);
             }
             else
             {
@@ -364,13 +370,16 @@ public class IdentityController : ControllerBase
                     });
                 }
 
-                // send new user to user account manager
+                // send new user to profile manager
                 NewUserProfileModel newUserAccountModel = new()
                 {
                     Id = user.Id,
                     AvatarUrl = result.Principal.GetClaim("picture"),
                 };
-                await _userProfileManager.SubmitNewUserAccount(newUserAccountModel);
+                await _userProfileManager.CreateNewUserProfile(newUserAccountModel);
+
+                // send new user to library manager
+                await _libManager.CreateNewUser(user.Id);
             }
             else
             {
@@ -428,12 +437,15 @@ public class IdentityController : ControllerBase
                 }
             });
 
-            // send new user to user account manager
+            // send new user to profile manager
             NewUserProfileModel newUserAccountModel = new()
             {
                 Id = user.Id,
             };
-            await _userProfileManager.SubmitNewUserAccount(newUserAccountModel);
+            await _userProfileManager.CreateNewUserProfile(newUserAccountModel);
+
+            // send new user to library manager
+            await _libManager.CreateNewUser(user.Id);
 
             // signin to asign the authorization cookie to the agant
             await _signInManager.SignInAsync(user, true);

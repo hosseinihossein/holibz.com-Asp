@@ -106,16 +106,6 @@ public class Program
         });
 
 
-        /*/ OIDC Client encryption
-        using var algorithm = RSA.Create(keySizeInBits: 4096);
-
-        var subject = new X500DistinguishedName("CN=OIDC Client Encryption Certificate");
-        var request = new CertificateRequest(subject, algorithm, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
-        request.CertificateExtensions.Add(new X509KeyUsageExtension(X509KeyUsageFlags.KeyEncipherment, critical: true));
-
-        var clientEncryptionCert = request.CreateSelfSigned(DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow.AddYears(2));
-*/
-
         // **********    CertManager    **********
         CertManager certManager = new(builder.Environment);
         builder.Services.AddSingleton<CertManager>(certManager);
@@ -232,8 +222,6 @@ public class Program
             builder.Configuration.GetValue<string>("MongoDb:LibraryDb")!,
             builder.Configuration.GetValue<string>("MongoDb:LibraryCollection")!
         ));
-        // UserAccountManager
-        builder.Services.AddSingleton<UserProfileManager>();
 
 
         //**************************** Email Sender **************************
@@ -273,6 +261,10 @@ public class Program
         builder.Services.AddSingleton<MainConfigs>((sp) => new MainConfigs(builder.Configuration["MainDomainName"] ?? "https://holibz.com"));
         //******************* Storage Configs *******************
         builder.Services.AddSingleton<StorageConfigs>(sp => new StorageConfigs(builder.Environment));
+        //******************* User Profile Manager *******************
+        builder.Services.AddSingleton<UserProfileManager>();
+        //******************* Library Manager *******************
+        builder.Services.AddSingleton<LibraryManager>();
 
 
         var app = builder.Build();
@@ -286,7 +278,8 @@ public class Program
             var userManager = scope.ServiceProvider.GetRequiredService<UserManager<IdentityUser<Guid>>>();
             var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole<Guid>>>();
             var userProfileManager = scope.ServiceProvider.GetRequiredService<UserProfileManager>();
-            await IdentityDb_Initializer.StartInitializing(identityDb, userManager, roleManager, app.Configuration, userProfileManager);
+            var libraryManager = scope.ServiceProvider.GetRequiredService<LibraryManager>();
+            await IdentityDb_Initializer.StartInitializing(identityDb, userManager, roleManager, app.Configuration, userProfileManager, libraryManager);
 
             // ***** dataProtectionDb *****
             var dataProtectionDb = scope.ServiceProvider.GetRequiredService<DataProtection_DbContext>();

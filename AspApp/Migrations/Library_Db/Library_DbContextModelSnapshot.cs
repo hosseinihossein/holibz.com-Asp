@@ -41,7 +41,6 @@ namespace AspApp.Migrations.Library_Db
             modelBuilder.Entity("AspApp.Models.Library_User_DbModel", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");

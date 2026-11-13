@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 using Microsoft.EntityFrameworkCore;
 
 namespace AspApp.Models;
@@ -28,6 +29,7 @@ public class Library_DbContext : DbContext
 public class Library_User_DbModel
 {
     [Key]
+    [DatabaseGenerated(DatabaseGeneratedOption.None)]
     public Guid Id { get; set; }
     public ICollection<Library_Library_DbModel> Libraries { get; set; } = [];
 }

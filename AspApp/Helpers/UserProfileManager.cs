@@ -17,13 +17,7 @@ public class UserProfileManager
         _mongoCollection = userAccountDb.GetCollection<BsonDocument>(mongoDbConfigs.ProfileCollection);
     }
 
-    public async Task SubmitNewUserAccount(NewUserProfileModel model)
-    {
-        //create profile
-        await CreateProfile(model);
-    }
-
-    private async Task CreateProfile(NewUserProfileModel model)
+    public async Task CreateNewUserProfile(NewUserProfileModel model)
     {
         //create user profile document on mongodb
         var bsonDoc = new BsonDocument
