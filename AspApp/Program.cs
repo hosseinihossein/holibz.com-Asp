@@ -312,7 +312,7 @@ public class Program
         app.MapDefaultControllerRoute();
 
 
-        app.MapGet("GetIdentityUsers", async (UserManager<IdentityUser<Guid>> userManager) =>
+        app.MapGet("/api/GetIdentityUsers", async (UserManager<IdentityUser<Guid>> userManager) =>
         {
             var users = await userManager.Users
             .Select(u => new
@@ -327,7 +327,7 @@ public class Program
             return new { identityUsers = users };
         });
 
-        app.MapGet("GetLibraryUsers", async (Library_DbContext libDb) =>
+        app.MapGet("/api/GetLibraryUsers", async (Library_DbContext libDb) =>
         {
             var users = await libDb.Users
             .Select(u => new
@@ -339,7 +339,7 @@ public class Program
             return new { libraryUsers = users };
         });
 
-        app.MapGet("GetProfileUsers",
+        app.MapGet("/api/GetProfileUsers",
         async (
             IMongoClient mongoClient,
             MongoDbConfigs mongoDbConfigs,
@@ -360,7 +360,7 @@ public class Program
             return new { profileUsers = userListJson.ToArray() };
         });
 
-        app.MapGet("/DeleteUserByEmail/{email}",
+        app.MapGet("/api/DeleteUserByEmail/{email}",
         async (
             string email,
             UserManager<IdentityUser<Guid>> userManager,
