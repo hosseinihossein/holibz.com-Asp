@@ -18,6 +18,7 @@ public class LibraryManager
             Id = userId,
         };
         await _libDb.Users.AddAsync(libUser);
+        await _libDb.SaveChangesAsync();
     }
 
     public async Task DeleteUser(Guid userId)
@@ -28,6 +29,7 @@ public class LibraryManager
             return;
         }
         _libDb.Users.Remove(user);
+        await _libDb.SaveChangesAsync();
     }
 }
 
