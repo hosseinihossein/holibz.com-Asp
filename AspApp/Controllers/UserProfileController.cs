@@ -124,7 +124,7 @@ public class UserProfileController : ControllerBase
             string oldAvatarId = bsonValue.AsString;
             if (string.IsNullOrWhiteSpace(oldAvatarId))
             {
-                DeleteAvatarFile(oldAvatarId);
+                _profileManager.DeleteAvatarFile(oldAvatarId);
             }
         }
 
@@ -139,23 +139,13 @@ public class UserProfileController : ControllerBase
             avatarName
         );
         var update = Builders<BsonDocument>.Update.Set("avatarId", new BsonString(avatarLinkPath));
-        await _mongoCollection.UpdateOneAsync(filter, update);
+        await _mongoCollection.UpdateOneAsync(filter, update, new UpdateOptions { IsUpsert = true });
 
         return Ok(new { success = true });
     }
     public class UserImageFile_FormModel
     {
         public IFormFile UserImageFile { get; set; } = null!;
-    }
-
-    private void DeleteAvatarFile(string avatarId)
-    {
-        string avatarFilePath = Path.Combine(_storageManager.UserAvatarDirInfo.FullName, avatarId);
-
-        if (System.IO.File.Exists(avatarFilePath))
-        {
-            System.IO.File.Delete(avatarFilePath);
-        }
     }
 
     [HttpDelete]
@@ -183,7 +173,7 @@ public class UserProfileController : ControllerBase
             if (string.IsNullOrWhiteSpace(avatarId))
             {
                 //delete file
-                DeleteAvatarFile(avatarId);
+                _profileManager.DeleteAvatarFile(avatarId);
 
                 //update mongodb
                 var filter = Builders<BsonDocument>.Filter
@@ -214,7 +204,7 @@ public class UserProfileController : ControllerBase
         var update = Builders<BsonDocument>.Update.Set("name", new BsonString(name));
         await _mongoCollection.UpdateOneAsync(filter, update);
 
-        return Ok();
+        return Ok(new { success = true });
     }
 
     [HttpPost]
@@ -235,7 +225,7 @@ public class UserProfileController : ControllerBase
         var update = Builders<BsonDocument>.Update.Set("description", new BsonString(description));
         await _mongoCollection.UpdateOneAsync(filter, update);
 
-        return Ok();
+        return Ok(new { success = true });
     }
 
 

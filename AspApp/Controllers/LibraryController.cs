@@ -20,13 +20,15 @@ public class LibraryController : ControllerBase
     readonly IMongoCollection<BsonDocument> _mongoCollection;
     readonly Library_DbContext _libDb;
     readonly StorageManager _storageManager;
+    readonly LibraryManager _libraryManager;
 
     public LibraryController(
         ILogger<LibraryController> logger,
         StorageManager storageManager,
         IMongoClient mongoClient,
         MongoDbConfigs mongoDbConfigs,
-        Library_DbContext libDb
+        Library_DbContext libDb,
+        LibraryManager libraryManager
     )
     {
         _logger = logger;
@@ -37,95 +39,10 @@ public class LibraryController : ControllerBase
         _storageManager = storageManager;
 
         _libDb = libDb;
+
+        _libraryManager = libraryManager;
     }
 
-
-    private async Task<BsonDocument?> GetModelBson(Guid libGuid, string[]? projectItems = null)
-    {
-        var filter = Builders<BsonDocument>.Filter
-        .Eq("_id", new BsonBinaryData(libGuid, GuidRepresentation.Standard));
-
-        IFindFluent<BsonDocument, BsonDocument> findFluent = _mongoCollection.Find(filter);
-
-        if (projectItems is not null && projectItems.Length > 0)
-        {
-            ProjectionDefinition<BsonDocument>? projection = null;
-            foreach (string item in projectItems)
-            {
-                if (!string.IsNullOrWhiteSpace(item))
-                {
-                    projection = Builders<BsonDocument>.Projection.Include(item);
-                }
-            }
-
-            if (projection is not null)
-            {
-                findFluent = findFluent.Project<BsonDocument>(projection);
-            }
-        }
-
-        return await findFluent.FirstOrDefaultAsync();
-    }
-
-    private Dictionary<string, object?> BsonToJson(BsonDocument bsonDoc)
-    {
-        /*string json = bsonDoc.ToJson(
-            new JsonWriterSettings()
-            {
-                OutputMode = JsonOutputMode.Shell,
-            }
-        );
-
-        return json;*/
-        Dictionary<string, object?> dictionary = [];
-
-        foreach (var bsonElement in bsonDoc)
-        {
-            dictionary.Add(bsonElement.Name, BsonValueToSimpleTypes(bsonElement.Value));
-        }
-
-        return dictionary;
-    }
-    private object? BsonValueToSimpleTypes(BsonValue bsonValue)
-    {
-        if (bsonValue.IsBoolean)
-        {
-            return bsonValue.AsBoolean;
-        }
-        else if (bsonValue.IsGuid)
-        {
-            return bsonValue.AsGuid;
-        }
-        else if (bsonValue.IsBsonDateTime)
-        {
-            return bsonValue.ToUniversalTime();
-        }
-        else if (bsonValue.IsBsonDocument)
-        {
-            return BsonValueToSimpleTypes(bsonValue);
-        }
-        else if (bsonValue.IsBsonNull)
-        {
-            return null;
-        }
-        else if (bsonValue.IsDouble)
-        {
-            return bsonValue.AsDouble;
-        }
-        else if (bsonValue.IsInt32)
-        {
-            return bsonValue.AsInt32;
-        }
-        else if (bsonValue.IsObjectId)
-        {
-            return bsonValue.ToString();
-        }
-        else if (bsonValue.IsString)
-        {
-            return bsonValue.ToString();
-        }
-        return new { };
-    }
 
     [HttpGet]
     public async Task<IActionResult> GetLibraryCardInfo([FromQuery][StringLength(36)] string libId)
@@ -136,15 +53,14 @@ public class LibraryController : ControllerBase
             return BadRequest(ModelState);
         }
 
-        BsonDocument? bsonDoc = await GetModelBson(libGuid);
+        BsonDocument? bsonDoc = await _libraryManager.GetFirstBsonDoc(libGuid);
 
         if (bsonDoc is null)
         {
             return NotFound(new { message = "Library not found!" });
         }
 
-        //return Content(BsonToJson(bsonDoc), "application/json");
-        return Ok(BsonToJson(bsonDoc));
+        return Ok(_libraryManager.BsonToJson(bsonDoc));
     }
 
     [HttpGet]
@@ -224,5 +140,207 @@ public class LibraryController : ControllerBase
 
         return Ok(new { success = true });
     }
+
+    [HttpPost]
+    [Authorize]
+    [ValidateAntiForgeryToken]
+    [RequestSizeLimit(256 * 1024)]
+    public async Task<IActionResult> SubmitImage([FromForm] Library_SubmitImage_FormModel formModel)
+    {
+        string? userIdString = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!Guid.TryParseExact(userIdString, "D", out Guid userGuid))
+        {
+            ModelState.AddModelError("User", "Couldn't parse user id!");
+            return BadRequest(ModelState);
+        }
+
+        if (!Guid.TryParseExact(formModel.LibraryId, "D", out Guid libGuid))
+        {
+            ModelState.AddModelError("Library", "Couldn't parse the Library id!");
+            return BadRequest(ModelState);
+        }
+
+        BsonDocument? bsonDoc = await _libraryManager.GetFirstBsonDoc(libGuid, ["ownerId", "imageUrl"]);
+        if (bsonDoc is null)
+        {
+            ModelState.AddModelError("Library", "Library not found!");
+            return BadRequest(ModelState);
+        }
+
+        Guid ownerId = bsonDoc.GetValue("ownerId").AsGuid;
+        if (ownerId != userGuid)
+        {
+            ModelState.AddModelError("Library", "You are not the owner of the library!");
+            return BadRequest(ModelState);
+        }
+
+        string imageName = Guid.NewGuid().ToString("D") + ".webp";
+        string imageFullPath = Path.Combine(_storageManager.LibraryImageDirInfo.FullName, imageName);
+        using (FileStream fs = System.IO.File.Create(imageFullPath))
+        {
+            await formModel.ImageFile.CopyToAsync(fs);
+        }
+
+        //delete the old avatar file
+        if (bsonDoc.TryGetValue("imageUrl", out BsonValue imageUrlBsonValue) && imageUrlBsonValue.IsString)
+        {
+            string imageUrl = imageUrlBsonValue.AsString;
+            if (string.IsNullOrWhiteSpace(imageUrl))
+            {
+                _libraryManager.DeleteImage(imageUrl);
+            }
+        }
+
+        //update avatarId for user profile document on mongodb
+        var filter = Builders<BsonDocument>.Filter
+        .Eq("_id", new BsonBinaryData(libGuid, GuidRepresentation.Standard));
+
+        string imageLinkPath = Path.Combine(
+            "/" +
+            _storageManager.StorageDirInfo.Name,
+            _storageManager.LibraryImageDirInfo.Name,
+            imageName
+        );
+        var update = Builders<BsonDocument>.Update.Set("imageUrl", new BsonString(imageLinkPath));
+        await _mongoCollection.UpdateOneAsync(filter, update, new UpdateOptions { IsUpsert = true });
+
+        return Ok(new { success = true });
+    }
+
+    [HttpDelete]
+    [Authorize]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeleteImage([FromQuery][StringLength(36)] string libraryId)
+    {
+        if (!Guid.TryParseExact(User.FindFirstValue(ClaimTypes.NameIdentifier), "D", out Guid userGuid))
+        {
+            ModelState.AddModelError("User", "Couldn't parse user id!");
+            return BadRequest(ModelState);
+        }
+
+        if (!Guid.TryParseExact(libraryId, "D", out Guid libGuid))
+        {
+            ModelState.AddModelError("User", "Couldn't parse user id!");
+            return BadRequest(ModelState);
+        }
+
+        BsonDocument? bsonDoc = await _libraryManager.GetFirstBsonDoc(libGuid, ["ownerId", "imageUrl"]);
+        if (bsonDoc is null)
+        {
+            ModelState.AddModelError("Library", "Library not found!");
+            return BadRequest(ModelState);
+        }
+
+        Guid ownerId = bsonDoc.GetValue("ownerId").AsGuid;
+        if (ownerId != userGuid)
+        {
+            ModelState.AddModelError("Library", "You are not the owner of the library!");
+            return BadRequest(ModelState);
+        }
+
+        //delete the image file and update database
+        if (bsonDoc.TryGetValue("imageUrl", out BsonValue imageUrlBsonValue) && imageUrlBsonValue.IsString)
+        {
+            string imageUrl = imageUrlBsonValue.AsString;
+            if (string.IsNullOrWhiteSpace(imageUrl))
+            {
+                //delete file
+                _libraryManager.DeleteImage(imageUrl);
+
+                //update mongodb
+                var filter = Builders<BsonDocument>.Filter
+                .Eq("_id", new BsonBinaryData(libGuid, GuidRepresentation.Standard));
+                var update = Builders<BsonDocument>.Update.Unset("imageUrl");
+                await _mongoCollection.UpdateOneAsync(filter, update);
+            }
+        }
+
+        return Ok(new { success = true });
+    }
+
+    [HttpPost]
+    [Authorize]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> SubmitTitle([FromForm] Library_SubmitTitle_FormModel formModel)
+    {
+        if (!Guid.TryParseExact(User.FindFirstValue(ClaimTypes.NameIdentifier), "D", out Guid userGuid))
+        {
+            ModelState.AddModelError("User", "Couldn't parse user id!");
+            return BadRequest(ModelState);
+        }
+
+        if (!Guid.TryParseExact(formModel.LibraryId, "D", out Guid libGuid))
+        {
+            ModelState.AddModelError("User", "Couldn't parse user id!");
+            return BadRequest(ModelState);
+        }
+
+        BsonDocument? bsonDoc = await _libraryManager.GetFirstBsonDoc(libGuid, ["ownerId"]);
+        if (bsonDoc is null)
+        {
+            ModelState.AddModelError("Library", "Library not found!");
+            return BadRequest(ModelState);
+        }
+
+        Guid ownerId = bsonDoc.GetValue("ownerId").AsGuid;
+        if (ownerId != userGuid)
+        {
+            ModelState.AddModelError("Library", "You are not the owner of the library!");
+            return BadRequest(ModelState);
+        }
+
+        //update library title document on mongodb
+        var filter = Builders<BsonDocument>.Filter
+        .Eq("_id", new BsonBinaryData(libGuid, GuidRepresentation.Standard));
+
+        var update = Builders<BsonDocument>.Update.Set("title", new BsonString(formModel.Title));
+        await _mongoCollection.UpdateOneAsync(filter, update);
+
+        return Ok(new { success = true });
+    }
+
+    [HttpPost]
+    [Authorize]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> SubmitDescription([FromForm] Library_SubmitDescription_FormModel formModel)
+    {
+        if (!Guid.TryParseExact(User.FindFirstValue(ClaimTypes.NameIdentifier), "D", out Guid userGuid))
+        {
+            ModelState.AddModelError("User", "Couldn't parse user id!");
+            return BadRequest(ModelState);
+        }
+
+        if (!Guid.TryParseExact(formModel.LibraryId, "D", out Guid libGuid))
+        {
+            ModelState.AddModelError("User", "Couldn't parse user id!");
+            return BadRequest(ModelState);
+        }
+
+        BsonDocument? bsonDoc = await _libraryManager.GetFirstBsonDoc(libGuid, ["ownerId"]);
+        if (bsonDoc is null)
+        {
+            ModelState.AddModelError("Library", "Library not found!");
+            return BadRequest(ModelState);
+        }
+
+        Guid ownerId = bsonDoc.GetValue("ownerId").AsGuid;
+        if (ownerId != userGuid)
+        {
+            ModelState.AddModelError("Library", "You are not the owner of the library!");
+            return BadRequest(ModelState);
+        }
+
+        //update library description document on mongodb
+        var filter = Builders<BsonDocument>.Filter
+        .Eq("_id", new BsonBinaryData(libGuid, GuidRepresentation.Standard));
+
+        var update = Builders<BsonDocument>.Update.Set("description", new BsonString(formModel.Description));
+        await _mongoCollection.UpdateOneAsync(filter, update);
+
+        return Ok(new { success = true });
+    }
+
+
+
 
 }

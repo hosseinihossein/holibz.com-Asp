@@ -9,13 +9,17 @@ namespace AspApp.Helpers;
 public class UserProfileManager
 {
     private readonly IMongoCollection<BsonDocument> _mongoCollection;
+    readonly IWebHostEnvironment _env;
     public UserProfileManager(
         IMongoClient mongoClient,
-        MongoDbConfigs mongoDbConfigs
+        MongoDbConfigs mongoDbConfigs,
+        IWebHostEnvironment env
     )
     {
         IMongoDatabase userAccountDb = mongoClient.GetDatabase(mongoDbConfigs.UserAccountDb);
         _mongoCollection = userAccountDb.GetCollection<BsonDocument>(mongoDbConfigs.ProfileCollection);
+
+        _env = env;
     }
 
     public async Task<BsonDocument?> GetFirstBsonDoc(Guid userGuid, string[]? projectItems = null)
@@ -47,14 +51,6 @@ public class UserProfileManager
 
     public Dictionary<string, object?> BsonToJson(BsonDocument bsonDoc)
     {
-        /*string json = bsonDoc.ToJson(
-            new JsonWriterSettings()
-            {
-                OutputMode = JsonOutputMode.Shell,
-            }
-        );
-
-        return json;*/
         Dictionary<string, object?> dictionary = [];
 
         foreach (var bsonElement in bsonDoc)
@@ -127,6 +123,15 @@ public class UserProfileManager
         await _mongoCollection.DeleteOneAsync(filter);
     }
 
+    public void DeleteAvatarFile(string avatarUrl)
+    {
+        string avatarFilePath = Path.Combine(_env.ContentRootPath, avatarUrl);
+
+        if (File.Exists(avatarFilePath))
+        {
+            File.Delete(avatarFilePath);
+        }
+    }
 
 
 
