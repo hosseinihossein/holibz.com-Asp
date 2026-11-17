@@ -36,7 +36,7 @@ public class IdentityController : ControllerBase
 
     private readonly MainConfigs _mainConfigs;
 
-    private readonly UserProfileManager _userProfileManager;
+    private readonly UserAccountManager _userAccManager;
     readonly LibraryManager _libManager;
 
 
@@ -48,7 +48,7 @@ public class IdentityController : ControllerBase
         IEmailSender emailSender,
         TurnstileConfigs turnstileConfigs,
         MainConfigs mainConfigs,
-        UserProfileManager userAccountManager,
+        UserAccountManager userAccountManager,
         LibraryManager libManager
     )
     {
@@ -59,7 +59,7 @@ public class IdentityController : ControllerBase
         _emailSender = emailSender;
         _turnstileEnabled = turnstileConfigs.Enabled;
         _mainConfigs = mainConfigs;
-        _userProfileManager = userAccountManager;
+        _userAccManager = userAccountManager;
         _libManager = libManager;
     }
 
@@ -237,12 +237,12 @@ public class IdentityController : ControllerBase
             var userByEmail = await _userManager.FindByEmailAsync(userEmail!);
             if (userByEmail is null)
             {
-                var usernameHint = result.Principal.GetClaim("login");
-                if (usernameHint is not null)
+                var nameOfUser = result.Principal.GetClaim("login");
+                if (nameOfUser is not null)
                 {
-                    usernameHint = Regex.Replace(usernameHint, @"[^a-zA-Z0-9._]", "");
+                    nameOfUser = Regex.Replace(nameOfUser, @"[^a-zA-Z0-9._]", "");
                 }
-                string username = _usernameGenerator.GetUniqueInMilliSeconds(usernameHint);
+                string username = _usernameGenerator.GetUniqueInMilliSeconds(nameOfUser);
 
                 user = new()
                 {
@@ -277,15 +277,13 @@ public class IdentityController : ControllerBase
                 }
 
                 // send new user to profile manager
-                NewUserProfileModel newUserAccountModel = new()
+                UserAccManager_NewUserModel newUserAccountModel = new()
                 {
                     Id = user.Id,
                     AvatarUrl = result.Principal.GetClaim("avatar_url"),
+                    Name = nameOfUser,
                 };
-                await _userProfileManager.CreateNewUserProfile(newUserAccountModel);
-
-                // send new user to library manager
-                await _libManager.CreateNewUser(user.Id);
+                await _userAccManager.CreateNewUser(newUserAccountModel);
             }
             else
             {
@@ -371,15 +369,12 @@ public class IdentityController : ControllerBase
                 }
 
                 // send new user to profile manager
-                NewUserProfileModel newUserAccountModel = new()
+                UserAccManager_NewUserModel newUserAccountModel = new()
                 {
                     Id = user.Id,
                     AvatarUrl = result.Principal.GetClaim("picture"),
                 };
-                await _userProfileManager.CreateNewUserProfile(newUserAccountModel);
-
-                // send new user to library manager
-                await _libManager.CreateNewUser(user.Id);
+                await _userAccManager.CreateNewUser(newUserAccountModel);
             }
             else
             {
@@ -438,14 +433,11 @@ public class IdentityController : ControllerBase
             });
 
             // send new user to profile manager
-            NewUserProfileModel newUserAccountModel = new()
+            UserAccManager_NewUserModel newUserAccModel = new()
             {
                 Id = user.Id,
             };
-            await _userProfileManager.CreateNewUserProfile(newUserAccountModel);
-
-            // send new user to library manager
-            await _libManager.CreateNewUser(user.Id);
+            await _userAccManager.CreateNewUser(newUserAccModel);
 
             // signin to asign the authorization cookie to the agant
             await _signInManager.SignInAsync(user, true);
@@ -766,11 +758,12 @@ public class IdentityController : ControllerBase
         .Select(u => u.UserName)
         .FirstOrDefaultAsync();
 
-        if (username == null)
+        /*if (username == null)
         {
             // Return 404 Not Found for a missing resource
-            return NotFound(new { message = "User not found." });
-        }
+            //return NotFound(new { message = "User not found." });
+
+        }*/
 
         return Ok(new { username });
     }

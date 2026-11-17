@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
-namespace AspApp.Models;
+namespace AspApp.Database;
 
 //*************** DataProtection_DbContext ****************
 public class DataProtection_DbContext : DbContext, IDataProtectionKeyContext
@@ -25,6 +25,13 @@ public class Identity_DbContext : IdentityDbContext<IdentityUser<Guid>, Identity
     public Identity_DbContext(DbContextOptions<Identity_DbContext> options) : base(options) { }
 }
 
+//*************** OpenIddict_DbContext ****************
+public class OpenIddict_DbContext : DbContext
+{
+    public OpenIddict_DbContext(DbContextOptions<OpenIddict_DbContext> options)
+        : base(options) { }
+}
+
 //*************** Identity_DbContext ****************
 public static class IdentityDb_Initializer
 {
@@ -33,8 +40,7 @@ public static class IdentityDb_Initializer
         UserManager<IdentityUser<Guid>> userManager,
         RoleManager<IdentityRole<Guid>> roleManager,
         IConfiguration configuration,
-        UserProfileManager userProfileManager,
-        LibraryManager libraryManager
+        UserAccountManager userAccManager
     )
     {
         string adminEmail = configuration["Identity:AdminEmail"]!;
@@ -67,14 +73,11 @@ public static class IdentityDb_Initializer
             }
 
             // send new user to profile manager
-            NewUserProfileModel newUserAccountModel = new()
+            UserAccManager_NewUserModel newUserAccountModel = new()
             {
                 Id = admin.Id,
             };
-            await userProfileManager.CreateNewUserProfile(newUserAccountModel);
-
-            // send new user to library manager
-            await libraryManager.CreateNewUser(admin.Id);
+            await userAccManager.CreateNewUser(newUserAccountModel);
         }
 
         //***** Seed Roles *****

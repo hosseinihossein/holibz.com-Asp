@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.Security.Claims;
+using AspApp.Database;
 using AspApp.Helpers;
 using AspApp.Models;
 using Microsoft.AspNetCore.Authorization;
@@ -16,31 +17,23 @@ namespace AspApp.Controllers;
 [Route("/api/[controller]/[action]")]
 public class LibraryController : ControllerBase
 {
-    readonly ILogger<LibraryController> _logger;
-    readonly IMongoCollection<BsonDocument> _mongoCollection;
-    readonly Library_DbContext _libDb;
-    readonly StorageManager _storageManager;
+    readonly IMongoCollection<BsonDocument> _libraryCollection;
+    readonly Application_DbContext _appDb;
     readonly LibraryManager _libraryManager;
+    readonly BsonManager _bsonManager;
 
     public LibraryController(
-        ILogger<LibraryController> logger,
-        StorageManager storageManager,
-        IMongoClient mongoClient,
+        IMongoDatabase mongoAppDb,
         MongoDbConfigs mongoDbConfigs,
-        Library_DbContext libDb,
-        LibraryManager libraryManager
+        Application_DbContext appDb,
+        LibraryManager libraryManager,
+        BsonManager bsonManager
     )
     {
-        _logger = logger;
-
-        IMongoDatabase libraryDb = mongoClient.GetDatabase(mongoDbConfigs.LibraryDb);
-        _mongoCollection = libraryDb.GetCollection<BsonDocument>(mongoDbConfigs.LibraryCollection);
-
-        _storageManager = storageManager;
-
-        _libDb = libDb;
-
+        _libraryCollection = mongoAppDb.GetCollection<BsonDocument>(mongoDbConfigs.LibraryCollection);
+        _appDb = appDb;
         _libraryManager = libraryManager;
+        _bsonManager = bsonManager;
     }
 
 
@@ -53,18 +46,18 @@ public class LibraryController : ControllerBase
             return BadRequest(ModelState);
         }
 
-        BsonDocument? bsonDoc = await _libraryManager.GetFirstBsonDoc(libGuid);
+        BsonDocument? bsonDoc = await _bsonManager.GetFirstBsonDoc(_libraryCollection, libGuid);
 
         if (bsonDoc is null)
         {
             return NotFound(new { message = "Library not found!" });
         }
 
-        return Ok(_libraryManager.BsonToJson(bsonDoc));
+        return Ok(_bsonManager.BsonToJson(bsonDoc));
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetLibraryIds([FromQuery][StringLength(36)] string userId)
+    public async Task<IActionResult> GetLibraryIdsOfUser([FromQuery][StringLength(36)] string userId)
     {
         if (!Guid.TryParseExact(userId, "D", out Guid userGuid))
         {
@@ -72,7 +65,8 @@ public class LibraryController : ControllerBase
             return BadRequest(ModelState);
         }
 
-        Guid[] libIds = await _libDb.Users.Where(u => u.Id == userGuid)
+        // postgres
+        Guid[] libIds = await _appDb.Users.Where(u => u.Id == userGuid)
         .SelectMany(u => u.Libraries)
         .Select(l => l.Id)
         .ToArrayAsync();
@@ -91,52 +85,15 @@ public class LibraryController : ControllerBase
             ModelState.AddModelError("User", "Couldn't parse the user id!");
             return BadRequest(ModelState);
         }
-        var user = await _libDb.Users.FirstOrDefaultAsync(u => u.Id == userGuid);
+        var user = await _appDb.Users.FirstOrDefaultAsync(u => u.Id == userGuid);
         if (user is null)
         {
             ModelState.AddModelError("User", $"Couldn't find the user! userId: {userGuid}");
             return BadRequest(ModelState);
         }
 
-        Library_Library_DbModel newLib = new()
-        {
-            Owner = user,
-        };
-
-        await _libDb.Libraries.AddAsync(newLib);
-        await _libDb.SaveChangesAsync();
-
-        var bsonDoc = new BsonDocument()
-        {
-            { "_id", new BsonBinaryData(newLib.Id, GuidRepresentation.Standard) },
-            { "ownerId", new BsonBinaryData(userGuid, GuidRepresentation.Standard) },
-            { "title", new BsonString(formModel.Title) },
-            { "createdAt", new BsonDateTime(DateTime.UtcNow) },
-        };
-        if (!string.IsNullOrWhiteSpace(formModel.Description))
-        {
-            bsonDoc.Add("description", new BsonString(formModel.Description));
-        }
-
-        if (formModel.Image is not null)
-        {
-            string imageName = Guid.NewGuid().ToString("D") + ".webp";
-            string imageFileFullPath = Path.Combine(_storageManager.LibraryImageDirInfo.FullName, imageName);
-            using (FileStream fs = System.IO.File.Create(imageFileFullPath))
-            {
-                await formModel.Image.CopyToAsync(fs);
-            }
-
-            string imageLinkPath = Path.Combine(
-                "/" +
-                _storageManager.StorageDirInfo.Name,
-                _storageManager.LibraryImageDirInfo.Name,
-                imageName
-            );
-            bsonDoc.Add("imageUrl", new BsonString(imageLinkPath));
-        }
-
-        await _mongoCollection.InsertOneAsync(bsonDoc);
+        LibraryManager_NewLib_Model model = new(formModel, user);
+        await _libraryManager.CreateNewLib(model);
 
         return Ok(new { success = true });
     }
@@ -160,25 +117,16 @@ public class LibraryController : ControllerBase
             return BadRequest(ModelState);
         }
 
-        BsonDocument? bsonDoc = await _libraryManager.GetFirstBsonDoc(libGuid, ["ownerId", "imageUrl"]);
+        Dictionary<string, object> conditions = new()
+        {
+            {"_id",libGuid},
+            {"ownerId", userGuid}
+        };
+        BsonDocument? bsonDoc = await _bsonManager.GetFirstBsonDoc(_libraryCollection, conditions, ["imageUrl"]);
         if (bsonDoc is null)
         {
             ModelState.AddModelError("Library", "Library not found!");
             return BadRequest(ModelState);
-        }
-
-        Guid ownerId = bsonDoc.GetValue("ownerId").AsGuid;
-        if (ownerId != userGuid)
-        {
-            ModelState.AddModelError("Library", "You are not the owner of the library!");
-            return BadRequest(ModelState);
-        }
-
-        string imageName = Guid.NewGuid().ToString("D") + ".webp";
-        string imageFullPath = Path.Combine(_storageManager.LibraryImageDirInfo.FullName, imageName);
-        using (FileStream fs = System.IO.File.Create(imageFullPath))
-        {
-            await formModel.ImageFile.CopyToAsync(fs);
         }
 
         //delete the old avatar file
@@ -191,18 +139,14 @@ public class LibraryController : ControllerBase
             }
         }
 
+        // save new image and get it's url here because the lib's owner needs to be checked first
+        string imageLinkPath = await _libraryManager.SaveImageAndGetUrl(formModel.ImageFile);
+
         //update avatarId for user profile document on mongodb
         var filter = Builders<BsonDocument>.Filter
         .Eq("_id", new BsonBinaryData(libGuid, GuidRepresentation.Standard));
-
-        string imageLinkPath = Path.Combine(
-            "/" +
-            _storageManager.StorageDirInfo.Name,
-            _storageManager.LibraryImageDirInfo.Name,
-            imageName
-        );
         var update = Builders<BsonDocument>.Update.Set("imageUrl", new BsonString(imageLinkPath));
-        await _mongoCollection.UpdateOneAsync(filter, update, new UpdateOptions { IsUpsert = true });
+        await _libraryCollection.UpdateOneAsync(filter, update);
 
         return Ok(new { success = true });
     }
@@ -224,17 +168,15 @@ public class LibraryController : ControllerBase
             return BadRequest(ModelState);
         }
 
-        BsonDocument? bsonDoc = await _libraryManager.GetFirstBsonDoc(libGuid, ["ownerId", "imageUrl"]);
+        Dictionary<string, object> conditions = new()
+        {
+            {"_id",libGuid},
+            {"ownerId", userGuid}
+        };
+        BsonDocument? bsonDoc = await _bsonManager.GetFirstBsonDoc(_libraryCollection, conditions, ["imageUrl"]);
         if (bsonDoc is null)
         {
             ModelState.AddModelError("Library", "Library not found!");
-            return BadRequest(ModelState);
-        }
-
-        Guid ownerId = bsonDoc.GetValue("ownerId").AsGuid;
-        if (ownerId != userGuid)
-        {
-            ModelState.AddModelError("Library", "You are not the owner of the library!");
             return BadRequest(ModelState);
         }
 
@@ -251,7 +193,7 @@ public class LibraryController : ControllerBase
                 var filter = Builders<BsonDocument>.Filter
                 .Eq("_id", new BsonBinaryData(libGuid, GuidRepresentation.Standard));
                 var update = Builders<BsonDocument>.Update.Unset("imageUrl");
-                await _mongoCollection.UpdateOneAsync(filter, update);
+                await _libraryCollection.UpdateOneAsync(filter, update);
             }
         }
 
@@ -275,28 +217,30 @@ public class LibraryController : ControllerBase
             return BadRequest(ModelState);
         }
 
-        BsonDocument? bsonDoc = await _libraryManager.GetFirstBsonDoc(libGuid, ["ownerId"]);
-        if (bsonDoc is null)
+        /*bool libExist = await _appDb.Libraries.AnyAsync(l => l.Id == libGuid && l.OwnerId == userGuid);
+        if (!libExist)
         {
-            ModelState.AddModelError("Library", "Library not found!");
+            ModelState.AddModelError("Library", "Your Library Not Found!");
             return BadRequest(ModelState);
-        }
-
-        Guid ownerId = bsonDoc.GetValue("ownerId").AsGuid;
-        if (ownerId != userGuid)
-        {
-            ModelState.AddModelError("Library", "You are not the owner of the library!");
-            return BadRequest(ModelState);
-        }
+        }*/
 
         //update library title document on mongodb
-        var filter = Builders<BsonDocument>.Filter
+        var idFilter = Builders<BsonDocument>.Filter
         .Eq("_id", new BsonBinaryData(libGuid, GuidRepresentation.Standard));
 
-        var update = Builders<BsonDocument>.Update.Set("title", new BsonString(formModel.Title));
-        await _mongoCollection.UpdateOneAsync(filter, update);
+        var ownerFilter = Builders<BsonDocument>.Filter
+        .Eq("ownerId", new BsonBinaryData(userGuid, GuidRepresentation.Standard));
 
-        return Ok(new { success = true });
+        var filter = Builders<BsonDocument>.Filter.And(idFilter, ownerFilter);
+
+        var update = Builders<BsonDocument>.Update.Set("title", new BsonString(formModel.Title));
+        var result = await _libraryCollection.UpdateOneAsync(filter, update);
+
+        if (result.IsAcknowledged && result.IsModifiedCountAvailable && result.ModifiedCount > 0)
+        {
+            return Ok(new { success = true });
+        }
+        return Ok(new { success = false });
     }
 
     [HttpPost]
@@ -316,28 +260,23 @@ public class LibraryController : ControllerBase
             return BadRequest(ModelState);
         }
 
-        BsonDocument? bsonDoc = await _libraryManager.GetFirstBsonDoc(libGuid, ["ownerId"]);
-        if (bsonDoc is null)
-        {
-            ModelState.AddModelError("Library", "Library not found!");
-            return BadRequest(ModelState);
-        }
-
-        Guid ownerId = bsonDoc.GetValue("ownerId").AsGuid;
-        if (ownerId != userGuid)
-        {
-            ModelState.AddModelError("Library", "You are not the owner of the library!");
-            return BadRequest(ModelState);
-        }
-
         //update library description document on mongodb
-        var filter = Builders<BsonDocument>.Filter
+        var idFilter = Builders<BsonDocument>.Filter
         .Eq("_id", new BsonBinaryData(libGuid, GuidRepresentation.Standard));
 
-        var update = Builders<BsonDocument>.Update.Set("description", new BsonString(formModel.Description));
-        await _mongoCollection.UpdateOneAsync(filter, update);
+        var ownerFilter = Builders<BsonDocument>.Filter
+        .Eq("ownerId", new BsonBinaryData(userGuid, GuidRepresentation.Standard));
 
-        return Ok(new { success = true });
+        var filter = Builders<BsonDocument>.Filter.And(idFilter, ownerFilter);
+
+        var update = Builders<BsonDocument>.Update.Set("description", new BsonString(formModel.Description));
+        var result = await _libraryCollection.UpdateOneAsync(filter, update);
+
+        if (result.IsAcknowledged && result.IsModifiedCountAvailable && result.ModifiedCount > 0)
+        {
+            return Ok(new { success = true });
+        }
+        return Ok(new { success = false });
     }
 
 

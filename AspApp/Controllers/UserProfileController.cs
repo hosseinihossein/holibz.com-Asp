@@ -17,27 +17,23 @@ namespace AspApp.Controllers;
 [Route("/api/[controller]/[action]")]
 public class UserProfileController : ControllerBase
 {
-    readonly ILogger<UserProfileController> _logger;
-    readonly IMongoCollection<BsonDocument> _mongoCollection;
-    readonly StorageManager _storageManager;
-    readonly UserProfileManager _profileManager;
+    //readonly ILogger<UserProfileController> _logger;
+    readonly IMongoCollection<BsonDocument> _profileCollection;
+    readonly UserAccountManager _userAccManager;
+    readonly BsonManager _bsonManager;
 
     public UserProfileController(
-        ILogger<UserProfileController> logger,
-        IMongoClient mongoClient,
+        //ILogger<UserProfileController> logger,
+        IMongoDatabase mongoDb,
         MongoDbConfigs mongoDbConfigs,
-        StorageManager storageManager,
-        UserProfileManager profileManager
+        UserAccountManager userAccManager,
+        BsonManager bsonManager
     )
     {
-        _logger = logger;
-
-        IMongoDatabase userAccountDb = mongoClient.GetDatabase(mongoDbConfigs.UserAccountDb);
-        _mongoCollection = userAccountDb.GetCollection<BsonDocument>(mongoDbConfigs.ProfileCollection);
-
-        _storageManager = storageManager;
-
-        _profileManager = profileManager;
+        //_logger = logger;
+        _profileCollection = mongoDb.GetCollection<BsonDocument>(mongoDbConfigs.ProfileCollection);
+        _userAccManager = userAccManager;
+        _bsonManager = bsonManager;
     }
 
 
@@ -51,15 +47,14 @@ public class UserProfileController : ControllerBase
             return BadRequest(ModelState);
         }
 
-        BsonDocument? bsonDoc = await _profileManager.GetFirstBsonDoc(userGuid);
+        BsonDocument? bsonDoc = await _bsonManager.GetFirstBsonDoc(_profileCollection, userGuid);
 
         if (bsonDoc is null)
         {
             return NotFound(new { message = "User not found!" });
         }
 
-        //return Content(_profileManager.BsonToJson(bsonDoc), "application/json");
-        return Ok(_profileManager.BsonToJson(bsonDoc));
+        return Ok(_bsonManager.BsonToJson(bsonDoc));
     }
 
     [HttpGet]
@@ -71,7 +66,7 @@ public class UserProfileController : ControllerBase
             return BadRequest(ModelState);
         }
 
-        BsonDocument? bsonDoc = await _profileManager.GetFirstBsonDoc(userGuid, ["avatarId"]);
+        BsonDocument? bsonDoc = await _bsonManager.GetFirstBsonDoc(_profileCollection, userGuid, ["avatarUrl"]);
         if (bsonDoc is null)
         {
             ModelState.AddModelError("User", "User Profile not found!");
@@ -79,22 +74,22 @@ public class UserProfileController : ControllerBase
         }
 
         //delete the avatar file and update database
-        if (bsonDoc.TryGetValue("avatarId", out BsonValue bsonValue) && bsonValue.IsString)
+        if (bsonDoc.TryGetValue("avatarUrl", out BsonValue bsonValue) && bsonValue.IsString)
         {
-            string avatarId = bsonValue.AsString;
-            if (string.IsNullOrWhiteSpace(avatarId))
+            string avatarUrl = bsonValue.AsString;
+            if (string.IsNullOrWhiteSpace(avatarUrl))
             {
-                return Ok(new { url = $"/Storage/UserProfile/Avatar/{avatarId}" });
+                return Ok(new { avatarUrl });
             }
         }
 
-        return NotFound();
+        return Ok(null);
     }
 
     [HttpPost]
+    [ValidateAntiForgeryToken]
     [Authorize]
     [RequestSizeLimit(128 * 1024)]//128 KB
-    [ValidateAntiForgeryToken]
     public async Task<IActionResult> SubmitUserImage([FromForm] UserImageFile_FormModel formModel)
     {
         string? userIdString = User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -104,27 +99,22 @@ public class UserProfileController : ControllerBase
             return BadRequest(ModelState);
         }
 
-        BsonDocument? bsonDoc = await _profileManager.GetFirstBsonDoc(userGuid, ["avatarId"]);
+        string avatarLinkPath = await _userAccManager.SaveAvatarAndGetUrl(formModel.UserImageFile);
+
+        BsonDocument? bsonDoc = await _bsonManager.GetFirstBsonDoc(_profileCollection, userGuid, ["avatarUrl"]);
         if (bsonDoc is null)
         {
             ModelState.AddModelError("User", "User Profile not found!");
             return BadRequest(ModelState);
         }
 
-        string avatarName = Guid.NewGuid().ToString("D") + ".webp";
-        string avatarFileFullPath = Path.Combine(_storageManager.UserAvatarDirInfo.FullName, avatarName);
-        using (FileStream fs = System.IO.File.Create(avatarFileFullPath))
-        {
-            await formModel.UserImageFile.CopyToAsync(fs);
-        }
-
         //delete the old avatar file
-        if (bsonDoc.TryGetValue("avatarId", out BsonValue bsonValue) && bsonValue.IsString)
+        if (bsonDoc.TryGetValue("avatarUrl", out BsonValue bsonValue) && bsonValue.IsString)
         {
-            string oldAvatarId = bsonValue.AsString;
-            if (string.IsNullOrWhiteSpace(oldAvatarId))
+            string oldAvatarUrl = bsonValue.AsString;
+            if (string.IsNullOrWhiteSpace(oldAvatarUrl))
             {
-                _profileManager.DeleteAvatarFile(oldAvatarId);
+                _userAccManager.DeleteAvatarFile(oldAvatarUrl);
             }
         }
 
@@ -132,14 +122,9 @@ public class UserProfileController : ControllerBase
         var filter = Builders<BsonDocument>.Filter
         .Eq("_id", new BsonBinaryData(userGuid, GuidRepresentation.Standard));
 
-        string avatarLinkPath = Path.Combine(
-            "/" +
-            _storageManager.StorageDirInfo.Name,
-            _storageManager.UserAvatarDirInfo.Name,
-            avatarName
-        );
-        var update = Builders<BsonDocument>.Update.Set("avatarId", new BsonString(avatarLinkPath));
-        await _mongoCollection.UpdateOneAsync(filter, update, new UpdateOptions { IsUpsert = true });
+        var update = Builders<BsonDocument>.Update.Set("avatarUrl", new BsonString(avatarLinkPath));
+
+        await _profileCollection.UpdateOneAsync(filter, update);
 
         return Ok(new { success = true });
     }
@@ -149,8 +134,8 @@ public class UserProfileController : ControllerBase
     }
 
     [HttpDelete]
-    [Authorize]
     [ValidateAntiForgeryToken]
+    [Authorize]
     public async Task<IActionResult> DeleteUserImage()
     {
         if (!Guid.TryParseExact(User.FindFirstValue(ClaimTypes.NameIdentifier), "D", out Guid userGuid))
@@ -159,7 +144,7 @@ public class UserProfileController : ControllerBase
             return BadRequest(ModelState);
         }
 
-        BsonDocument? bsonDoc = await _profileManager.GetFirstBsonDoc(userGuid, ["avatarId"]);
+        BsonDocument? bsonDoc = await _bsonManager.GetFirstBsonDoc(_profileCollection, userGuid, ["avatarUrl"]);
         if (bsonDoc is null)
         {
             ModelState.AddModelError("User", "User Profile not found!");
@@ -167,19 +152,19 @@ public class UserProfileController : ControllerBase
         }
 
         //delete the avatar file and update database
-        if (bsonDoc.TryGetValue("avatarId", out BsonValue bsonValue) && bsonValue.IsString)
+        if (bsonDoc.TryGetValue("avatarUrl", out BsonValue bsonValue) && bsonValue.IsString)
         {
             string avatarId = bsonValue.AsString;
             if (string.IsNullOrWhiteSpace(avatarId))
             {
                 //delete file
-                _profileManager.DeleteAvatarFile(avatarId);
+                _userAccManager.DeleteAvatarFile(avatarId);
 
                 //update mongodb
                 var filter = Builders<BsonDocument>.Filter
                 .Eq("_id", new BsonBinaryData(userGuid, GuidRepresentation.Standard));
-                var update = Builders<BsonDocument>.Update.Unset("avatarId");
-                await _mongoCollection.UpdateOneAsync(filter, update);
+                var update = Builders<BsonDocument>.Update.Unset("avatarUrl");
+                await _profileCollection.UpdateOneAsync(filter, update);
             }
         }
 
@@ -202,7 +187,7 @@ public class UserProfileController : ControllerBase
         .Eq("_id", new BsonBinaryData(userGuid, GuidRepresentation.Standard));
 
         var update = Builders<BsonDocument>.Update.Set("name", new BsonString(name));
-        await _mongoCollection.UpdateOneAsync(filter, update);
+        await _profileCollection.UpdateOneAsync(filter, update);
 
         return Ok(new { success = true });
     }
@@ -210,7 +195,7 @@ public class UserProfileController : ControllerBase
     [HttpPost]
     [Authorize]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> SubmitDescription([FromForm][StringLength(4000)] string description)
+    public async Task<IActionResult> SubmitDescription([FromForm][StringLength(400)] string description)
     {
         if (!Guid.TryParseExact(User.FindFirstValue(ClaimTypes.NameIdentifier), "D", out Guid userGuid))
         {
@@ -223,7 +208,7 @@ public class UserProfileController : ControllerBase
         .Eq("_id", new BsonBinaryData(userGuid, GuidRepresentation.Standard));
 
         var update = Builders<BsonDocument>.Update.Set("description", new BsonString(description));
-        await _mongoCollection.UpdateOneAsync(filter, update);
+        await _profileCollection.UpdateOneAsync(filter, update);
 
         return Ok(new { success = true });
     }

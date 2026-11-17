@@ -1,6 +1,7 @@
 using System.Net;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
+using AspApp.Database;
 using AspApp.Helpers;
 using AspApp.Models;
 using Microsoft.AspNetCore.DataProtection;
@@ -49,10 +50,10 @@ public class Program
         {
             options.UseNpgsql(builder.Configuration["Postgres:ConnectionString:DataProtection"]);
         });
-        //******************* Library_DbContext *******************
-        builder.Services.AddDbContext<Library_DbContext>(options =>
+        //******************* App_DbContext *******************
+        builder.Services.AddDbContext<Application_DbContext>(options =>
         {
-            options.UseNpgsql(builder.Configuration["Postgres:ConnectionString:Library"]);
+            options.UseNpgsql(builder.Configuration["Postgres:ConnectionString:Application"]);
         });
 
 
@@ -212,18 +213,18 @@ public class Program
 
 
         //**************************** MongoDb **************************
+        // Configs
+        builder.Services.AddSingleton<MongoDbConfigs>(sp => new MongoDbConfigs(builder.Configuration));
         // Register IMongoClient as a Singleton factory
         builder.Services.AddSingleton<IMongoClient>(sp =>
             new MongoClient(builder.Configuration["MongoDb:ConnectionString"])
         );
-        // Configs
-        builder.Services.AddSingleton<MongoDbConfigs>(sp => new MongoDbConfigs(
-            builder.Configuration.GetValue<string>("MongoDb:ConnectionString")!,
-            builder.Configuration.GetValue<string>("MongoDb:UserAccountDb")!,
-            builder.Configuration.GetValue<string>("MongoDb:ProfileCollection")!,
-            builder.Configuration.GetValue<string>("MongoDb:LibraryDb")!,
-            builder.Configuration.GetValue<string>("MongoDb:LibraryCollection")!
-        ));
+        builder.Services.AddSingleton<IMongoDatabase>(sp =>
+        {
+            var mongoClient = sp.GetRequiredService<IMongoClient>();
+            var mongoConfigs = sp.GetRequiredService<MongoDbConfigs>();
+            return mongoClient.GetDatabase(mongoConfigs.AppDb);
+        });
 
 
         //**************************** Email Sender **************************
@@ -263,10 +264,14 @@ public class Program
         builder.Services.AddSingleton<MainConfigs>((sp) => new MainConfigs(builder.Configuration["MainDomainName"] ?? "https://holibz.com"));
         //******************* Storage Manager *******************
         builder.Services.AddSingleton<StorageManager>();
+        //******************* Bson Manager *******************
+        builder.Services.AddSingleton<BsonManager>();
         //******************* User Profile Manager *******************
-        builder.Services.AddSingleton<UserProfileManager>();
+        builder.Services.AddSingleton<UserAccountManager>();
         //******************* Library Manager *******************
         builder.Services.AddSingleton<LibraryManager>();
+        //******************* Shelf Manager *******************
+        builder.Services.AddSingleton<ShelfManager>();
 
 
         var app = builder.Build();
@@ -279,9 +284,8 @@ public class Program
             var identityDb = scope.ServiceProvider.GetRequiredService<Identity_DbContext>();
             var userManager = scope.ServiceProvider.GetRequiredService<UserManager<IdentityUser<Guid>>>();
             var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole<Guid>>>();
-            var userProfileManager = scope.ServiceProvider.GetRequiredService<UserProfileManager>();
-            var libraryManager = scope.ServiceProvider.GetRequiredService<LibraryManager>();
-            await IdentityDb_Initializer.StartInitializing(identityDb, userManager, roleManager, app.Configuration, userProfileManager, libraryManager);
+            var userAccManager = scope.ServiceProvider.GetRequiredService<UserAccountManager>();
+            await IdentityDb_Initializer.StartInitializing(identityDb, userManager, roleManager, app.Configuration, userAccManager);
 
             // ***** dataProtectionDb *****
             var dataProtectionDb = scope.ServiceProvider.GetRequiredService<DataProtection_DbContext>();
@@ -291,9 +295,9 @@ public class Program
             var openIddictDb = scope.ServiceProvider.GetRequiredService<OpenIddict_DbContext>();
             await openIddictDb.Database.MigrateAsync();
 
-            // ***** libraryDb *****
-            var libraryDb = scope.ServiceProvider.GetRequiredService<Library_DbContext>();
-            await libraryDb.Database.MigrateAsync();
+            // ***** appDb *****
+            var appDb = scope.ServiceProvider.GetRequiredService<Application_DbContext>();
+            await appDb.Database.MigrateAsync();
         }
 
 
@@ -310,92 +314,6 @@ public class Program
 
         app.MapControllers();
         app.MapDefaultControllerRoute();
-
-
-        app.MapGet("/api/GetIdentityUsers", async (UserManager<IdentityUser<Guid>> userManager) =>
-        {
-            var users = await userManager.Users
-            .Select(u => new
-            {
-                u.Id,
-                u.Email,
-                u.EmailConfirmed,
-                u.UserName
-            })
-            .ToArrayAsync();
-
-            return new { identityUsers = users };
-        });
-
-        app.MapGet("/api/GetLibraryUsers", async (Library_DbContext libDb) =>
-        {
-            var users = await libDb.Users
-            .Select(u => new
-            {
-                u.Id,
-            })
-            .ToArrayAsync();
-
-            return new { libraryUsers = users };
-        });
-
-        app.MapGet("/api/GetProfileUsers",
-        async (
-            IMongoClient mongoClient,
-            MongoDbConfigs mongoDbConfigs,
-            UserProfileManager profileManager
-        ) =>
-        {
-            IMongoDatabase userAccountDb = mongoClient.GetDatabase(mongoDbConfigs.UserAccountDb);
-            IMongoCollection<BsonDocument> mongoCollection = userAccountDb.GetCollection<BsonDocument>(mongoDbConfigs.ProfileCollection);
-
-            IFindFluent<BsonDocument, BsonDocument> findFluent = mongoCollection.Find(Builders<BsonDocument>.Filter.Empty);
-            var userListBson = await findFluent.ToListAsync();
-            List<Dictionary<string, object?>> userListJson = [];
-            foreach (var ub in userListBson)
-            {
-                userListJson.Add(profileManager.BsonToJson(ub));
-            }
-
-            return new { profileUsers = userListJson.ToArray() };
-        });
-
-        app.MapGet("/api/DeleteUserByUsername/{username}",
-        async (
-            string username,
-            UserManager<IdentityUser<Guid>> userManager,
-            UserProfileManager profileManager,
-            LibraryManager libManager
-        ) =>
-        {
-            var user = await userManager.FindByNameAsync(username);
-            if (user is not null)
-            {
-                await userManager.DeleteAsync(user);
-                await profileManager.DeleteUserProfile(user.Id);
-                await libManager.DeleteUser(user.Id);
-                return new { success = true };
-            }
-            return new { success = false };
-        });
-
-        app.MapGet("/api/DeleteAllLibraries",
-        async (
-            LibraryManager libManager,
-            IMongoClient mongoClient,
-            MongoDbConfigs mongoDbConfigs,
-            UserProfileManager profileManager
-        ) =>
-        {
-            IMongoDatabase userAccountDb = mongoClient.GetDatabase(mongoDbConfigs.UserAccountDb);
-            IMongoCollection<BsonDocument> mongoCollection = userAccountDb.GetCollection<BsonDocument>(mongoDbConfigs.LibraryCollection);
-
-            await mongoCollection.DeleteManyAsync(Builders<BsonDocument>.Filter.Empty);
-
-            await libManager.DeleteAllLibraries();
-
-            return new { success = true };
-        });
 
 
         //******************* app.Run ******************
