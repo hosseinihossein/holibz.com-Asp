@@ -276,13 +276,6 @@ public class Program
         // ********** Initialize IdentityDb **********
         await using (var scope = app.Services.CreateAsyncScope())
         {
-            // ***** identityDb *****
-            var identityDb = scope.ServiceProvider.GetRequiredService<Identity_DbContext>();
-            var userManager = scope.ServiceProvider.GetRequiredService<UserManager<IdentityUser<Guid>>>();
-            var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole<Guid>>>();
-            var userAccManager = scope.ServiceProvider.GetRequiredService<UserAccountManager>();
-            await IdentityDb_Initializer.StartInitializing(identityDb, userManager, roleManager, app.Configuration, userAccManager);
-
             // ***** dataProtectionDb *****
             var dataProtectionDb = scope.ServiceProvider.GetRequiredService<DataProtection_DbContext>();
             await dataProtectionDb.Database.MigrateAsync();
@@ -294,6 +287,13 @@ public class Program
             // ***** appDb *****
             var appDb = scope.ServiceProvider.GetRequiredService<Application_DbContext>();
             await appDb.Database.MigrateAsync();
+
+            // ***** identityDb *****
+            var identityDb = scope.ServiceProvider.GetRequiredService<Identity_DbContext>();
+            var userManager = scope.ServiceProvider.GetRequiredService<UserManager<IdentityUser<Guid>>>();
+            var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole<Guid>>>();
+            var userAccManager = scope.ServiceProvider.GetRequiredService<UserAccountManager>();
+            await IdentityDb_Initializer.StartInitializing(identityDb, userManager, roleManager, app.Configuration, userAccManager);
         }
 
 
