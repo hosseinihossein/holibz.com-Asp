@@ -63,7 +63,7 @@ public class LibraryManager
     {
         string imageName = Guid.NewGuid().ToString("D") + ".webp";
         string imageFileFullPath = Path.Combine(_storageManager.LibraryImageDirInfo.FullName, imageName);
-        using (FileStream fs = System.IO.File.Create(imageFileFullPath))
+        using (FileStream fs = File.Create(imageFileFullPath))
         {
             await imageFile.CopyToAsync(fs);
         }

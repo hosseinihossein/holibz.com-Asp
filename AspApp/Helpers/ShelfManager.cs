@@ -20,7 +20,7 @@ public class ShelfManager
     )
     {
         _appDb = appDb;
-        _shelfCollection = mongoAppDb.GetCollection<BsonDocument>(mongoDbConfigs.LibraryCollection);
+        _shelfCollection = mongoAppDb.GetCollection<BsonDocument>(mongoDbConfigs.ShelfCollection);
         _env = env;
         _storageManager = storageManager;
     }

@@ -8,7 +8,7 @@ namespace AspApp.Helpers;
 public class DocumentManager
 {
     readonly Application_DbContext _appDb;
-    readonly IMongoCollection<BsonDocument> _shelfCollection;
+    readonly IMongoCollection<BsonDocument> _docCollection;
     readonly IWebHostEnvironment _env;
     readonly StorageManager _storageManager;
     public DocumentManager(
@@ -20,7 +20,7 @@ public class DocumentManager
     )
     {
         _appDb = appDb;
-        _shelfCollection = mongoAppDb.GetCollection<BsonDocument>(mongoDbConfigs.LibraryCollection);
+        _docCollection = mongoAppDb.GetCollection<BsonDocument>(mongoDbConfigs.DocumentCollection);
         _env = env;
         _storageManager = storageManager;
     }
@@ -62,7 +62,7 @@ public class DocumentManager
             bsonDoc.Add("imageUrl", new BsonString(imageLinkPath));
         }
 
-        await _shelfCollection.InsertOneAsync(bsonDoc);
+        await _docCollection.InsertOneAsync(bsonDoc);
     }
 
     public async Task<string> SaveImageAndGetUrl(IFormFile imageFile)
