@@ -23,7 +23,14 @@ public class BsonManager
             {
                 if (!string.IsNullOrWhiteSpace(item))
                 {
-                    projection = Builders<BsonDocument>.Projection.Include(item);
+                    if (projection is null)
+                    {
+                        projection = Builders<BsonDocument>.Projection.Include(item);
+                    }
+                    else
+                    {
+                        projection.Include(item);
+                    }
                 }
             }
 
@@ -62,7 +69,14 @@ public class BsonManager
             {
                 if (!string.IsNullOrWhiteSpace(item))
                 {
-                    projection = Builders<BsonDocument>.Projection.Include(item);
+                    if (projection is null)
+                    {
+                        projection = Builders<BsonDocument>.Projection.Include(item);
+                    }
+                    else
+                    {
+                        projection.Include(item);
+                    }
                 }
             }
 

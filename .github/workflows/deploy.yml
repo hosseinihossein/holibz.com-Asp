@@ -47,11 +47,7 @@ jobs:
 
             # Create storage directories and set their permissions for named volumes
             mkdir MyAspApp/Storage
-            mkdir MyAspApp/Storage/UserAvatar
-            mkdir MyAspApp/Storage/LibraryImage
-            mkdir MyAspApp/Storage/ShelfImage
-            mkdir MyAspApp/Storage/DocumentImage
-            chown 1654:1654 MyAspApp/Storage MyAspApp/Storage/UserAvatar MyAspApp/Storage/LibraryImage MyAspApp/Storage/ShelfImage MyAspApp/Storage/DocumentImage
+            chown 1654:1654 MyAspApp/Storage
 
             # Stop and remove aspapp if it exists (ignoring failure if it doesn't)
             docker rm -f aspapp || true
@@ -66,9 +62,6 @@ jobs:
             docker run -d \
               --name aspapp \
               --network=my-bridge \
-              -v user-avatar:/MyAspApp/Storage/UserAvatar \
-              -v library-image:/MyAspApp/Storage/LibraryImage \
-              -v shelf-image:/MyAspApp/Storage/ShelfImage \
-              -v document-image:/MyAspApp/Storage/DocumentImage \
+              --mount type=bind,source=/opt/myApps/nginx/Storage,target=/MyAspApp/Storage \
               aspapp:1.0
           EOF

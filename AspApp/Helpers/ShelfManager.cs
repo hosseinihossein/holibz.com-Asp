@@ -11,18 +11,21 @@ public class ShelfManager
     readonly IMongoCollection<BsonDocument> _shelfCollection;
     readonly IWebHostEnvironment _env;
     readonly StorageManager _storageManager;
+    readonly BsonManager _bsonManager;
     public ShelfManager(
         Application_DbContext appDb,
         IMongoDatabase mongoAppDb,
         MongoDbConfigs mongoDbConfigs,
         IWebHostEnvironment env,
-        StorageManager storageManager
+        StorageManager storageManager,
+        BsonManager bsonManager
     )
     {
         _appDb = appDb;
         _shelfCollection = mongoAppDb.GetCollection<BsonDocument>(mongoDbConfigs.ShelfCollection);
         _env = env;
         _storageManager = storageManager;
+        _bsonManager = bsonManager;
     }
 
     public async Task CreateNewShelf(ShelfManager_NewShelf_Model model)
@@ -92,6 +95,20 @@ public class ShelfManager
         }
     }
 
+    public async Task IncreaseTotalNumberOfDocs(Guid shelfId)
+    {
+        var filter = Builders<BsonDocument>.Filter
+        .Eq("_id", new BsonBinaryData(shelfId, GuidRepresentation.Standard));
+        var update = Builders<BsonDocument>.Update.Inc("totalNumberOfDocs", new BsonInt32(1));
+        await _shelfCollection.UpdateOneAsync(filter, update);
+    }
+    public async Task DecreaseTotalNumberOfDocs(Guid shelfId)
+    {
+        var filter = Builders<BsonDocument>.Filter
+        .Eq("_id", new BsonBinaryData(shelfId, GuidRepresentation.Standard));
+        var update = Builders<BsonDocument>.Update.Inc("totalNumberOfDocs", new BsonInt32(-1));
+        await _shelfCollection.UpdateOneAsync(filter, update);
+    }
 
 }
 public class ShelfManager_NewShelf_Model : Shelf_NewShelf_FormModel

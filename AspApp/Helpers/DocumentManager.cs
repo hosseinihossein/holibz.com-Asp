@@ -11,18 +11,21 @@ public class DocumentManager
     readonly IMongoCollection<BsonDocument> _docCollection;
     readonly IWebHostEnvironment _env;
     readonly StorageManager _storageManager;
+    readonly ShelfManager _shelfManager;
     public DocumentManager(
         Application_DbContext appDb,
         IMongoDatabase mongoAppDb,
         MongoDbConfigs mongoDbConfigs,
         IWebHostEnvironment env,
-        StorageManager storageManager
+        StorageManager storageManager,
+        ShelfManager shelfManager
     )
     {
         _appDb = appDb;
         _docCollection = mongoAppDb.GetCollection<BsonDocument>(mongoDbConfigs.DocumentCollection);
         _env = env;
         _storageManager = storageManager;
+        _shelfManager = shelfManager;
     }
 
     public async Task CreateNewDoc(DocumentManager_NewDoc_Model model)
@@ -63,6 +66,9 @@ public class DocumentManager
         }
 
         await _docCollection.InsertOneAsync(bsonDoc);
+
+        // increment parentShelf.totaldocNumber
+        await _shelfManager.IncreaseTotalNumberOfDocs(model.ParentShelfId);
     }
 
     public async Task<string> SaveImageAndGetUrl(IFormFile imageFile)
