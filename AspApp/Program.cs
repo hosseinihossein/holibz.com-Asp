@@ -5,17 +5,11 @@ using AspApp.Database;
 using AspApp.Helpers;
 using AspApp.Models;
 using Microsoft.AspNetCore.DataProtection;
-using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
-using MongoDB.Bson;
 using MongoDB.Driver;
-using OpenIddict.Client;
-using OpenIddict.Client.AspNetCore;
 
 namespace AspApp;
 
@@ -267,11 +261,13 @@ public class Program
         //******************* Bson Manager *******************
         builder.Services.AddSingleton<BsonManager>();
         //******************* User Profile Manager *******************
-        builder.Services.AddSingleton<UserAccountManager>();
+        builder.Services.AddScoped<UserAccountManager>();
         //******************* Library Manager *******************
-        builder.Services.AddSingleton<LibraryManager>();
+        builder.Services.AddScoped<LibraryManager>();
         //******************* Shelf Manager *******************
-        builder.Services.AddSingleton<ShelfManager>();
+        builder.Services.AddScoped<ShelfManager>();
+        //******************* Document Manager *******************
+        builder.Services.AddScoped<DocumentManager>();
 
 
         var app = builder.Build();
