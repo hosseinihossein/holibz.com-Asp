@@ -29,7 +29,7 @@ public class BsonManager
                     }
                     else
                     {
-                        projection.Include(item);
+                        projection = projection.Include(item);
                     }
                 }
             }
@@ -75,7 +75,7 @@ public class BsonManager
                     }
                     else
                     {
-                        projection.Include(item);
+                        projection = projection.Include(item);
                     }
                 }
             }
