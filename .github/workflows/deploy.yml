@@ -49,7 +49,9 @@ jobs:
             mkdir MyAspApp/Storage
             mkdir MyAspApp/Storage/UserAvatar
             mkdir MyAspApp/Storage/LibraryImage
-            chown 1654:1654 MyAspApp/Storage MyAspApp/Storage/UserAvatar MyAspApp/Storage/LibraryImage
+            mkdir MyAspApp/Storage/ShelfImage
+            mkdir MyAspApp/Storage/DocumentImage
+            chown 1654:1654 MyAspApp/Storage MyAspApp/Storage/UserAvatar MyAspApp/Storage/LibraryImage MyAspApp/Storage/ShelfImage MyAspApp/Storage/DocumentImage
 
             # Stop and remove aspapp if it exists (ignoring failure if it doesn't)
             docker rm -f aspapp || true
@@ -66,5 +68,7 @@ jobs:
               --network=my-bridge \
               -v user-avatar:/MyAspApp/Storage/UserAvatar \
               -v library-image:/MyAspApp/Storage/LibraryImage \
+              -v shelf-image:/MyAspApp/Storage/ShelfImage \
+              -v document-image:/MyAspApp/Storage/DocumentImage \
               aspapp:1.0
           EOF
